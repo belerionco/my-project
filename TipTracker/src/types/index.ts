@@ -2,6 +2,8 @@ export interface TipEntry {
   id: string;
   date: string; // YYYY-MM-DD
   hoursWorked: number;
+  startTime?: string; // HH:MM AM/PM format
+  endTime?: string; // HH:MM AM/PM format
   cashTips: number;
   cardTips: number;
   tipOut: number;

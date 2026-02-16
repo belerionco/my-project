@@ -6,7 +6,7 @@ import {
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import { ShiftType } from '../types';
-import { toDateKey } from '../utils/helpers';
+import { toDateKey, calculateHoursWorked, formatHoursMinutes } from '../utils/helpers';
 
 interface AddTipModalProps {
   visible: boolean;
@@ -24,6 +24,9 @@ const SHIFT_TYPES: { value: ShiftType; label: string }[] = [
 export default function AddTipModal({ visible, onClose, initialDate }: AddTipModalProps) {
   const { addEntry } = useApp();
   const [date, setDate] = useState(initialDate || toDateKey(new Date()));
+  const [useTimeCalculator, setUseTimeCalculator] = useState(true);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [hoursWorked, setHoursWorked] = useState('');
   const [cashTips, setCashTips] = useState('');
   const [cardTips, setCardTips] = useState('');
@@ -33,6 +36,9 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
 
   const resetForm = () => {
     setDate(initialDate || toDateKey(new Date()));
+    setUseTimeCalculator(true);
+    setStartTime('');
+    setEndTime('');
     setHoursWorked('');
     setCashTips('');
     setCardTips('');
@@ -42,9 +48,22 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
   };
 
   const handleSave = () => {
+    let calculatedHours = 0;
+
+    if (useTimeCalculator && startTime && endTime) {
+      const hours = calculateHoursWorked(startTime, endTime);
+      if (hours !== null) {
+        calculatedHours = hours;
+      }
+    } else {
+      calculatedHours = parseFloat(hoursWorked) || 0;
+    }
+
     const entry = {
       date,
-      hoursWorked: parseFloat(hoursWorked) || 0,
+      hoursWorked: calculatedHours,
+      startTime: useTimeCalculator ? startTime : undefined,
+      endTime: useTimeCalculator ? endTime : undefined,
       cashTips: parseFloat(cashTips) || 0,
       cardTips: parseFloat(cardTips) || 0,
       tipOut: parseFloat(tipOut) || 0,
@@ -60,6 +79,11 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
   };
 
   const totalNet = (parseFloat(cashTips) || 0) + (parseFloat(cardTips) || 0) - (parseFloat(tipOut) || 0);
+
+  // Calculate hours in real-time
+  const calculatedHours = useTimeCalculator && startTime && endTime
+    ? calculateHoursWorked(startTime, endTime) || 0
+    : parseFloat(hoursWorked) || 0;
 
   // Date navigation
   const changeDate = (offset: number) => {
@@ -120,19 +144,66 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
               ))}
             </View>
 
-            {/* Hours */}
-            <Text style={styles.label}>Hours Worked</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                value={hoursWorked}
-                onChangeText={setHoursWorked}
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-              />
-              <Text style={styles.inputSuffix}>hrs</Text>
+            {/* Hours - Toggle between time calculator and manual */}
+            <View style={styles.hoursHeader}>
+              <Text style={styles.label}>Hours Worked</Text>
+              <TouchableOpacity
+                style={styles.toggleBtn}
+                onPress={() => setUseTimeCalculator(!useTimeCalculator)}
+              >
+                <Text style={styles.toggleText}>
+                  {useTimeCalculator ? '⏰ Time' : '✏️ Manual'}
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            {useTimeCalculator ? (
+              <>
+                {/* Start Time */}
+                <Text style={styles.subLabel}>Start Time</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  value={startTime}
+                  onChangeText={setStartTime}
+                  placeholder="10:00 AM"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="characters"
+                />
+
+                {/* End Time */}
+                <Text style={styles.subLabel}>End Time</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  value={endTime}
+                  onChangeText={setEndTime}
+                  placeholder="3:30 PM"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="characters"
+                />
+
+                {/* Show calculated hours */}
+                {calculatedHours > 0 && (
+                  <View style={styles.calculatedHoursRow}>
+                    <Text style={styles.calculatedHoursLabel}>Total:</Text>
+                    <Text style={styles.calculatedHoursValue}>
+                      {formatHoursMinutes(calculatedHours)} ({calculatedHours.toFixed(2)} hrs)
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  value={hoursWorked}
+                  onChangeText={setHoursWorked}
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                />
+                <Text style={styles.inputSuffix}>hrs</Text>
+              </View>
+            )}
 
             {/* Cash Tips */}
             <Text style={styles.label}>Cash Tips</Text>
@@ -345,6 +416,60 @@ const styles = StyleSheet.create({
   },
   totalValue: {
     fontSize: fontSize.xxl,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  hoursHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  toggleBtn: {
+    backgroundColor: colors.accentDim,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  toggleText: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  subLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  timeInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  calculatedHoursRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.accentDim,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  calculatedHoursLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  calculatedHoursValue: {
+    fontSize: fontSize.md,
     fontWeight: '800',
     color: colors.accent,
   },

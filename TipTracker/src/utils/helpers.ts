@@ -109,3 +109,70 @@ const MONTH_SHORT = [
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export { MONTH_NAMES, MONTH_SHORT, DAY_NAMES };
+
+// Time calculation helpers
+export function parseTimeString(timeStr: string): { hours: number; minutes: number } | null {
+  // Parse format like "10:01 AM" or "3:33 PM"
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+
+  if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return null;
+
+  // Convert to 24-hour format
+  if (period === 'PM' && hours !== 12) {
+    hours += 12;
+  } else if (period === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  return { hours, minutes };
+}
+
+export function calculateHoursWorked(startTime: string, endTime: string): number | null {
+  const start = parseTimeString(startTime);
+  const end = parseTimeString(endTime);
+
+  if (!start || !end) return null;
+
+  let startMinutes = start.hours * 60 + start.minutes;
+  let endMinutes = end.hours * 60 + end.minutes;
+
+  // Handle overnight shifts (end time is before start time)
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60; // Add 24 hours
+  }
+
+  const totalMinutes = endMinutes - startMinutes;
+  return totalMinutes / 60; // Convert to decimal hours
+}
+
+export function formatHoursMinutes(decimalHours: number): string {
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+
+  if (hours === 0) {
+    return `${minutes}m`;
+  } else if (minutes === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${minutes}m`;
+}
+
+export function formatTimeInput(value: string): string {
+  // Auto-format as user types: "1001am" -> "10:01 AM"
+  const digits = value.replace(/[^\d]/g, '');
+
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) {
+    const hours = digits.slice(0, -2);
+    const minutes = digits.slice(-2);
+    return `${hours}:${minutes}`;
+  }
+
+  return value;
+}

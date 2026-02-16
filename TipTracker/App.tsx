@@ -8,6 +8,7 @@ import { AppProvider, useApp } from './src/context/AppContext';
 import DashboardScreen from './src/screens/DashboardScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import StatsScreen from './src/screens/StatsScreen';
+import EarningsScreen from './src/screens/EarningsScreen';
 import GoalsScreen from './src/screens/GoalsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
@@ -64,6 +65,7 @@ function MainTabs() {
           {() => <CalendarScreen onAddTip={openModal} />}
         </Tab.Screen>
         <Tab.Screen name="Stats" component={StatsScreen} />
+        <Tab.Screen name="Earnings" component={EarningsScreen} />
         <Tab.Screen name="Goals" component={GoalsScreen} />
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
