@@ -263,6 +263,9 @@ export default function SettingsScreen() {
         </Text>
       </TouchableOpacity>
 
+      {/* Version */}
+      <Text style={styles.versionText}>v2026.02.16 — 8:30 PM</Text>
+
       <View style={{ height: spacing.xxl }} />
     </ScrollView>
   );
@@ -394,5 +397,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  versionText: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.xl,
   },
 });
