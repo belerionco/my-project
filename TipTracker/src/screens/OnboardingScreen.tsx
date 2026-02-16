@@ -4,9 +4,12 @@ import {
   ScrollView, KeyboardAvoidingView, Platform, Animated,
   Dimensions,
 } from 'react-native';
-import { v4 as uuidv4 } from 'uuid';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { UserProfile, SavingsGoal } from '../types';
+
+// Simple unique ID generator (no crypto dependency)
+const generateId = (): string =>
+  Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -101,7 +104,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
 
     if (savingsName.trim() && !isNaN(savTarget) && savTarget > 0 && !isNaN(savContrib) && savContrib > 0) {
       profileData.savingsGoal = {
-        id: uuidv4(),
+        id: generateId(),
         name: savingsName.trim(),
         targetAmount: savTarget,
         contributionPerShift: savContrib,
