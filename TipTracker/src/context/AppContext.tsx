@@ -19,6 +19,7 @@ interface AppContextType {
   setGoal: (type: 'weekly' | 'monthly', amount: number) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   completeOnboarding: (profileData: Partial<UserProfile>) => void;
+  resetOnboarding: () => void;
   isLoading: boolean;
 }
 
@@ -107,11 +108,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveData({ entries, goals, profile: updated });
   }, [entries, goals, profile, saveData]);
 
+  const resetOnboarding = useCallback(() => {
+    const updated: UserProfile = { ...profile, onboardingCompleted: false };
+    setProfile(updated);
+    saveData({ entries, goals, profile: updated });
+  }, [entries, goals, profile, saveData]);
+
   return (
     <AppContext.Provider value={{
       entries, goals, profile,
       addEntry, updateEntry, deleteEntry, setGoal,
-      updateProfile, completeOnboarding,
+      updateProfile, completeOnboarding, resetOnboarding,
       isLoading,
     }}>
       {children}

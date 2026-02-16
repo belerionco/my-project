@@ -8,6 +8,7 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import GoalsScreen from './src/screens/GoalsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddTipModal from './src/components/AddTipModal';
 import { colors, fontSize } from './src/utils/theme';
@@ -58,6 +59,7 @@ function MainTabs() {
         </Tab.Screen>
         <Tab.Screen name="Stats" component={StatsScreen} />
         <Tab.Screen name="Goals" component={GoalsScreen} />
+        <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
 
       <AddTipModal
@@ -70,7 +72,7 @@ function MainTabs() {
 }
 
 function AppContent() {
-  const { profile, completeOnboarding, isLoading } = useApp();
+  const { profile, completeOnboarding, resetOnboarding, isLoading } = useApp();
 
   if (isLoading) {
     return (
