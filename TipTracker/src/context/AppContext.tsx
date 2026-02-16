@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { v4 as uuidv4 } from 'uuid';
+// Simple unique ID generator (no crypto dependency)
+const generateId = (): string =>
+  Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
 import { TipEntry, Goal, AppData, UserProfile, SavingsGoal } from '../types';
 
 const STORAGE_KEY = '@tiptracker_data';
@@ -60,7 +62,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addEntry = useCallback((entry: Omit<TipEntry, 'id'>) => {
-    const newEntry: TipEntry = { ...entry, id: uuidv4() };
+    const newEntry: TipEntry = { ...entry, id: generateId() };
     setEntries(prev => {
       const updated = [...prev, newEntry];
       saveData({ entries: updated, goals, profile });
@@ -87,7 +89,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setGoal = useCallback((type: 'weekly' | 'monthly', amount: number) => {
     setGoals(prev => {
       const filtered = prev.filter(g => g.type !== type);
-      const newGoal: Goal = { id: uuidv4(), type, amount, createdAt: new Date().toISOString() };
+      const newGoal: Goal = { id: generateId(), type, amount, createdAt: new Date().toISOString() };
       const updated = [...filtered, newGoal];
       saveData({ entries, goals: updated, profile });
       return updated;
