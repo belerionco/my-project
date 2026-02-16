@@ -5,7 +5,6 @@ import { useApp } from '../context/AppContext';
 import {
   totalTips,
   totalHours,
-  averageHourlyRate,
   getEntriesForWeek,
   getEntriesForMonth,
   formatCurrency,
@@ -35,11 +34,13 @@ export default function EarningsScreen() {
   const filteredEntries = getFilteredEntries();
   const totalTipsEarned = filteredEntries.reduce((sum, e) => sum + totalTips(e), 0);
   const totalHoursWorked = totalHours(filteredEntries);
-  const tipsPerHour = totalHoursWorked > 0 ? totalTipsEarned / totalHoursWorked : 0;
   const wagesPerHour = profile.hourlyWage || 0;
-  const combinedPerHour = tipsPerHour + wagesPerHour;
   const totalWages = wagesPerHour * totalHoursWorked;
   const totalEarnings = totalTipsEarned + totalWages;
+  // Avg tips/hour = total tips across all shifts / total hours across all shifts
+  const tipsPerHour = totalHoursWorked > 0 ? totalTipsEarned / totalHoursWorked : 0;
+  // Avg combined/hour = total earnings (wages + tips) / total hours across all shifts
+  const combinedPerHour = totalHoursWorked > 0 ? totalEarnings / totalHoursWorked : 0;
 
   const periods: { key: Period; label: string }[] = [
     { key: 'week', label: 'This Week' },
@@ -72,26 +73,22 @@ export default function EarningsScreen() {
 
         <View style={styles.rateRow}>
           <View style={styles.rateLabel}>
-            <Text style={styles.rateLabelText}>💵 Tips/Hour</Text>
+            <Text style={styles.rateLabelText}>💵 Avg Tips/Hour</Text>
+            <Text style={styles.rateNote}>
+              {formatCurrency(totalTipsEarned)} tips / {totalHoursWorked.toFixed(1)} hrs
+            </Text>
           </View>
           <Text style={styles.rateValue}>{formatCurrency(tipsPerHour)}</Text>
-        </View>
-
-        <View style={styles.rateRow}>
-          <View style={styles.rateLabel}>
-            <Text style={styles.rateLabelText}>💰 Wages/Hour</Text>
-            {wagesPerHour === 0 && (
-              <Text style={styles.rateNote}>(Set in Settings)</Text>
-            )}
-          </View>
-          <Text style={styles.rateValue}>{formatCurrency(wagesPerHour)}</Text>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.rateRow}>
           <View style={styles.rateLabel}>
-            <Text style={styles.rateLabelTextBold}>🎯 Combined/Hour</Text>
+            <Text style={styles.rateLabelTextBold}>🎯 Avg Combined/Hour</Text>
+            <Text style={styles.rateNote}>
+              {formatCurrency(totalEarnings)} total / {totalHoursWorked.toFixed(1)} hrs
+            </Text>
           </View>
           <Text style={styles.rateValueLarge}>{formatCurrency(combinedPerHour)}</Text>
         </View>
