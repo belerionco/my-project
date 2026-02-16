@@ -19,7 +19,7 @@ interface CalendarScreenProps {
 }
 
 export default function CalendarScreen({ onAddTip }: CalendarScreenProps) {
-  const { entries, deleteEntry } = useApp();
+  const { entries, deleteEntry, daysOff, toggleDayOff } = useApp();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -52,6 +52,7 @@ export default function CalendarScreen({ onAddTip }: CalendarScreenProps) {
 
   const selectedEntries = selectedDate ? entryMap[selectedDate] || [] : [];
   const selectedTotal = selectedEntries.reduce((sum, e) => sum + totalTips(e), 0);
+  const isSelectedDayOff = selectedDate ? daysOff.includes(selectedDate) : false;
 
   const monthTotal = monthEntries.reduce((sum, e) => sum + totalTips(e), 0);
 
@@ -77,19 +78,21 @@ export default function CalendarScreen({ onAddTip }: CalendarScreenProps) {
       const isSelected = selectedDate === dateKey;
       const isToday = dateKey === toDateKey(new Date());
       const hasEntries = dayEntries.length > 0;
+      const isDayOff = daysOff.includes(dateKey);
 
       cells.push(
         <TouchableOpacity
           key={day}
           style={[
             styles.dayCell,
+            isDayOff && !isSelected && styles.dayCellDayOff,
             isSelected && styles.dayCellSelected,
-            isToday && !isSelected && styles.dayCellToday,
+            isToday && !isSelected && !isDayOff && styles.dayCellToday,
           ]}
           onPress={() => setSelectedDate(dateKey)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>
+          <Text style={[styles.dayNumber, isSelected && styles.dayNumberSelected, isDayOff && !isSelected && styles.dayNumberDayOff]}>
             {day}
           </Text>
           {hasEntries && (
@@ -97,7 +100,10 @@ export default function CalendarScreen({ onAddTip }: CalendarScreenProps) {
               ${Math.round(dayTotal)}
             </Text>
           )}
-          {!hasEntries && <View style={styles.dayAmountPlaceholder} />}
+          {!hasEntries && isDayOff && (
+            <Text style={styles.dayOffLabel}>OFF</Text>
+          )}
+          {!hasEntries && !isDayOff && <View style={styles.dayAmountPlaceholder} />}
         </TouchableOpacity>
       );
     }
@@ -143,12 +149,22 @@ export default function CalendarScreen({ onAddTip }: CalendarScreenProps) {
               <Text style={styles.detailsTitle}>
                 {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
               </Text>
-              <TouchableOpacity
-                style={styles.addDayButton}
-                onPress={() => onAddTip(selectedDate)}
-              >
-                <Text style={styles.addDayButtonText}>+ Add</Text>
-              </TouchableOpacity>
+              <View style={styles.detailsActions}>
+                <TouchableOpacity
+                  style={[styles.dayOffButton, isSelectedDayOff && styles.dayOffButtonActive]}
+                  onPress={() => selectedDate && toggleDayOff(selectedDate)}
+                >
+                  <Text style={[styles.dayOffButtonText, isSelectedDayOff && styles.dayOffButtonTextActive]}>
+                    {isSelectedDayOff ? 'Day Off' : 'Day Off'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.addDayButton}
+                  onPress={() => onAddTip(selectedDate)}
+                >
+                  <Text style={styles.addDayButtonText}>+ Add</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {selectedEntries.length === 0 ? (
@@ -277,6 +293,21 @@ const styles = StyleSheet.create({
   dayAmountPlaceholder: {
     height: 14,
   },
+  dayCellDayOff: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.md,
+    opacity: 0.6,
+  },
+  dayNumberDayOff: {
+    color: colors.textMuted,
+  },
+  dayOffLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
   detailsCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
@@ -293,6 +324,27 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: '700',
     color: colors.text,
+  },
+  detailsActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  dayOffButton: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  dayOffButtonActive: {
+    backgroundColor: colors.textMuted,
+  },
+  dayOffButtonText: {
+    color: colors.textSecondary,
+    fontWeight: '700',
+    fontSize: fontSize.sm,
+  },
+  dayOffButtonTextActive: {
+    color: colors.background,
   },
   addDayButton: {
     backgroundColor: colors.accent,

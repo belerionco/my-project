@@ -44,6 +44,7 @@ export interface AppData {
   entries: TipEntry[];
   goals: Goal[];
   profile: UserProfile;
+  daysOff?: string[]; // YYYY-MM-DD dates marked as days off
 }
 
 export type ShiftType = TipEntry['shiftType'];
