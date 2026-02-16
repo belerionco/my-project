@@ -510,7 +510,7 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       {/* Version */}
-      <Text style={styles.versionText}>v2026.02.16 — 3:07 PM</Text>
+      <Text style={styles.versionText}>v2026.02.16 — 3:53 PM</Text>
 
       <View style={{ height: spacing.xxl }} />
 

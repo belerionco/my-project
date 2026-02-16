@@ -4,7 +4,7 @@ import {
   Modal, ScrollView, Platform, Alert,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import { TipEntry, Workplace, WageRate } from '../types';
@@ -154,7 +154,7 @@ export default function ImportModal({ visible, onClose }: ImportModalProps) {
         setParsed(rows);
         setStep('preview');
       } else {
-        const text = await FileSystem.readAsStringAsync(file.uri);
+        const text = await readAsStringAsync(file.uri);
         setCsvText(text);
         const rows = parseCSV(text);
         setParsed(rows);
