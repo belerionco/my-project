@@ -264,7 +264,7 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       {/* Version */}
-      <Text style={styles.versionText}>v2026.02.16 — 2:35 PM</Text>
+      <Text style={styles.versionText}>v2026.02.16 — 2:50 PM</Text>
 
       <View style={{ height: spacing.xxl }} />
     </ScrollView>

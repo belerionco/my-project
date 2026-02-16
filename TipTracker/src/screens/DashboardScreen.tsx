@@ -18,7 +18,7 @@ interface DashboardScreenProps {
 }
 
 export default function DashboardScreen({ onAddTip }: DashboardScreenProps) {
-  const { entries, goals } = useApp();
+  const { entries, goals, profile } = useApp();
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -34,7 +34,8 @@ export default function DashboardScreen({ onAddTip }: DashboardScreenProps) {
   const avgHourly = averageHourlyRate(monthEntries);
   const avgTips = averageTipsPerShift(monthEntries);
   const monthHours = totalHours(monthEntries);
-  const combinedAvg = monthHours > 0 ? monthTotal / monthHours : 0;
+  const hourlyWage = profile.hourlyWage || 0;
+  const combinedAvg = monthHours > 0 ? (monthTotal / monthHours) + hourlyWage : 0;
 
   const monthGoalRemaining = monthlyGoal ? Math.max(0, monthlyGoal.amount - monthTotal) : null;
   const weekGoalRemaining = weeklyGoal ? Math.max(0, weeklyGoal.amount - weekTotal) : null;
