@@ -11,7 +11,7 @@ import GoalsScreen from './src/screens/GoalsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddTipModal from './src/components/AddTipModal';
-import { colors, fontSize } from './src/utils/theme';
+import { colors, fontSize, spacing } from './src/utils/theme';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -28,12 +28,17 @@ function MainTabs() {
     <>
       <Tab.Navigator
         screenOptions={{
+          tabBarScrollEnabled: true,
           tabBarStyle: {
             backgroundColor: colors.background,
             elevation: 0,
             shadowOpacity: 0,
             borderBottomWidth: 1,
             borderBottomColor: colors.border,
+          },
+          tabBarItemStyle: {
+            width: 'auto',
+            paddingHorizontal: spacing.md,
           },
           tabBarLabelStyle: {
             fontSize: fontSize.xs,
