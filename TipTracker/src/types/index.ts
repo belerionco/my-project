@@ -16,9 +16,32 @@ export interface Goal {
   createdAt: string;
 }
 
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  contributionPerShift: number;
+  totalContributed: number;
+  createdAt: string;
+}
+
+export interface UserProfile {
+  name?: string;
+  workplace?: string;
+  role?: string;
+  hourlyWage?: number;
+  tipMethod?: 'cash' | 'card' | 'both' | 'pooled';
+  dailyGoal?: number;
+  monthlyGoal?: number;
+  yearlyGoal?: number;
+  savingsGoal?: SavingsGoal;
+  onboardingCompleted: boolean;
+}
+
 export interface AppData {
   entries: TipEntry[];
   goals: Goal[];
+  profile: UserProfile;
 }
 
 export type ShiftType = TipEntry['shiftType'];

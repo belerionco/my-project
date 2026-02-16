@@ -1,17 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
-import { TipEntry, Goal, AppData } from '../types';
+import { TipEntry, Goal, AppData, UserProfile, SavingsGoal } from '../types';
 
 const STORAGE_KEY = '@tiptracker_data';
+
+const DEFAULT_PROFILE: UserProfile = {
+  onboardingCompleted: false,
+};
 
 interface AppContextType {
   entries: TipEntry[];
   goals: Goal[];
+  profile: UserProfile;
   addEntry: (entry: Omit<TipEntry, 'id'>) => void;
   updateEntry: (id: string, entry: Partial<TipEntry>) => void;
   deleteEntry: (id: string) => void;
   setGoal: (type: 'weekly' | 'monthly', amount: number) => void;
+  updateProfile: (updates: Partial<UserProfile>) => void;
+  completeOnboarding: (profileData: Partial<UserProfile>) => void;
   isLoading: boolean;
 }
 
@@ -20,6 +27,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [entries, setEntries] = useState<TipEntry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -41,6 +49,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const data: AppData = JSON.parse(raw);
         setEntries(data.entries || []);
         setGoals(data.goals || []);
+        setProfile(data.profile || DEFAULT_PROFILE);
       }
     } catch (e) {
       console.error('Failed to load data', e);
@@ -53,39 +62,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newEntry: TipEntry = { ...entry, id: uuidv4() };
     setEntries(prev => {
       const updated = [...prev, newEntry];
-      saveData({ entries: updated, goals });
+      saveData({ entries: updated, goals, profile });
       return updated;
     });
-  }, [goals, saveData]);
+  }, [goals, profile, saveData]);
 
   const updateEntry = useCallback((id: string, updates: Partial<TipEntry>) => {
     setEntries(prev => {
       const updated = prev.map(e => e.id === id ? { ...e, ...updates } : e);
-      saveData({ entries: updated, goals });
+      saveData({ entries: updated, goals, profile });
       return updated;
     });
-  }, [goals, saveData]);
+  }, [goals, profile, saveData]);
 
   const deleteEntry = useCallback((id: string) => {
     setEntries(prev => {
       const updated = prev.filter(e => e.id !== id);
-      saveData({ entries: updated, goals });
+      saveData({ entries: updated, goals, profile });
       return updated;
     });
-  }, [goals, saveData]);
+  }, [goals, profile, saveData]);
 
   const setGoal = useCallback((type: 'weekly' | 'monthly', amount: number) => {
     setGoals(prev => {
       const filtered = prev.filter(g => g.type !== type);
       const newGoal: Goal = { id: uuidv4(), type, amount, createdAt: new Date().toISOString() };
       const updated = [...filtered, newGoal];
-      saveData({ entries, goals: updated });
+      saveData({ entries, goals: updated, profile });
       return updated;
     });
-  }, [entries, saveData]);
+  }, [entries, profile, saveData]);
+
+  const updateProfile = useCallback((updates: Partial<UserProfile>) => {
+    setProfile(prev => {
+      const updated = { ...prev, ...updates };
+      saveData({ entries, goals, profile: updated });
+      return updated;
+    });
+  }, [entries, goals, saveData]);
+
+  const completeOnboarding = useCallback((profileData: Partial<UserProfile>) => {
+    const updated: UserProfile = { ...profile, ...profileData, onboardingCompleted: true };
+    setProfile(updated);
+    saveData({ entries, goals, profile: updated });
+  }, [entries, goals, profile, saveData]);
 
   return (
-    <AppContext.Provider value={{ entries, goals, addEntry, updateEntry, deleteEntry, setGoal, isLoading }}>
+    <AppContext.Provider value={{
+      entries, goals, profile,
+      addEntry, updateEntry, deleteEntry, setGoal,
+      updateProfile, completeOnboarding,
+      isLoading,
+    }}>
       {children}
     </AppContext.Provider>
   );

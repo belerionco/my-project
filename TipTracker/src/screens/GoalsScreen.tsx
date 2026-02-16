@@ -14,7 +14,7 @@ import {
 } from '../utils/helpers';
 
 export default function GoalsScreen() {
-  const { goals, setGoal, entries } = useApp();
+  const { goals, setGoal, entries, profile } = useApp();
   const [editingWeekly, setEditingWeekly] = useState(false);
   const [editingMonthly, setEditingMonthly] = useState(false);
   const [weeklyInput, setWeeklyInput] = useState('');
@@ -187,6 +187,64 @@ export default function GoalsScreen() {
           )}
         </View>
 
+        {/* Custom Savings Goal */}
+        {profile.savingsGoal && (
+          <View style={styles.goalCard}>
+            <View style={styles.goalHeader}>
+              <Text style={styles.goalIcon}>🐷</Text>
+              <Text style={styles.goalType}>Savings: {profile.savingsGoal.name}</Text>
+            </View>
+
+            {(() => {
+              const sg = profile.savingsGoal!;
+              const contributed = sg.contributionPerShift * entries.length;
+              const progress = Math.min(1, contributed / sg.targetAmount);
+              const remaining = Math.max(0, sg.targetAmount - contributed);
+              const totalTipsEarned = totalEarnings(entries);
+              const afterSavings = totalTipsEarned - contributed;
+
+              return (
+                <>
+                  <View style={styles.progressSection}>
+                    <Text style={styles.progressAmount}>{formatCurrency(contributed)}</Text>
+                    <Text style={styles.progressOf}>of {formatCurrency(sg.targetAmount)}</Text>
+                  </View>
+                  <View style={styles.progressBarLg}>
+                    <View style={[styles.progressFill, styles.progressSavings, { width: `${progress * 100}%` }]} />
+                  </View>
+                  <View style={styles.progressMeta}>
+                    <Text style={[styles.progressPercent, { color: colors.gold }]}>{Math.round(progress * 100)}%</Text>
+                    {contributed < sg.targetAmount ? (
+                      <Text style={styles.progressRemaining}>
+                        {formatCurrency(remaining)} to go
+                      </Text>
+                    ) : (
+                      <Text style={styles.goalReached}>Goal reached!</Text>
+                    )}
+                  </View>
+
+                  <View style={styles.savingsDetails}>
+                    <View style={styles.savingsDetailRow}>
+                      <Text style={styles.savingsDetailLabel}>Per shift contribution</Text>
+                      <Text style={styles.savingsDetailValue}>{formatCurrency(sg.contributionPerShift)}</Text>
+                    </View>
+                    <View style={styles.savingsDetailRow}>
+                      <Text style={styles.savingsDetailLabel}>Tips after savings</Text>
+                      <Text style={styles.savingsDetailValue}>{formatCurrency(Math.max(0, afterSavings))}</Text>
+                    </View>
+                    {remaining > 0 && sg.contributionPerShift > 0 && (
+                      <View style={styles.savingsDetailRow}>
+                        <Text style={styles.savingsDetailLabel}>Shifts remaining</Text>
+                        <Text style={styles.savingsDetailValue}>~{Math.ceil(remaining / sg.contributionPerShift)}</Text>
+                      </View>
+                    )}
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        )}
+
         {/* Quick Stats */}
         <View style={styles.quickStats}>
           <Text style={styles.quickStatsTitle}>{MONTH_NAMES[now.getMonth()]} Summary</Text>
@@ -356,6 +414,30 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  progressSavings: {
+    backgroundColor: colors.gold,
+  },
+  savingsDetails: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  savingsDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs + 2,
+  },
+  savingsDetailLabel: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+  },
+  savingsDetailValue: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.text,
   },
   quickStats: {
     backgroundColor: colors.surface,

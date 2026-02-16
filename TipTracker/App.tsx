@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { SafeAreaView, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { AppProvider } from './src/context/AppContext';
+import { AppProvider, useApp } from './src/context/AppContext';
 import DashboardScreen from './src/screens/DashboardScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import GoalsScreen from './src/screens/GoalsScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddTipModal from './src/components/AddTipModal';
 import { colors, fontSize } from './src/utils/theme';
 
@@ -68,15 +69,40 @@ function MainTabs() {
   );
 }
 
+function AppContent() {
+  const { profile, completeOnboarding, isLoading } = useApp();
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (!profile.onboardingCompleted) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
+        <OnboardingScreen onComplete={completeOnboarding} />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
+        <MainTabs />
+      </SafeAreaView>
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   return (
     <AppProvider>
-      <NavigationContainer>
-        <SafeAreaView style={styles.container}>
-          <StatusBar style="light" />
-          <MainTabs />
-        </SafeAreaView>
-      </NavigationContainer>
+      <AppContent />
     </AppProvider>
   );
 }
@@ -85,5 +111,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
