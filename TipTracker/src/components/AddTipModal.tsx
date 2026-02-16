@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   Modal, ScrollView, KeyboardAvoidingView, Platform,
@@ -24,6 +24,12 @@ const SHIFT_TYPES: { value: ShiftType; label: string }[] = [
 export default function AddTipModal({ visible, onClose, initialDate }: AddTipModalProps) {
   const { addEntry } = useApp();
   const [date, setDate] = useState(initialDate || toDateKey(new Date()));
+
+  useEffect(() => {
+    if (visible) {
+      setDate(initialDate || toDateKey(new Date()));
+    }
+  }, [visible, initialDate]);
   const [useTimeCalculator, setUseTimeCalculator] = useState(true);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
