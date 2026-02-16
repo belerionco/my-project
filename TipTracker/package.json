@@ -14,6 +14,8 @@
     "@react-navigation/material-top-tabs": "^7.4.13",
     "@react-navigation/native": "^7.1.28",
     "expo": "~54.0.33",
+    "expo-document-picker": "^14.0.8",
+    "expo-file-system": "^19.0.21",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-dom": "^19.1.0",

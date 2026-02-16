@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
-import { UserProfile } from '../types';
+import { UserProfile, Workplace } from '../types';
+import ImportModal from '../components/ImportModal';
 
 const ROLES = ['Server', 'Bartender', 'Delivery Driver', 'Barista', 'Expo', 'Food Runner'];
 const TIP_METHODS: { key: NonNullable<UserProfile['tipMethod']>; label: string }[] = [
@@ -16,7 +17,10 @@ const TIP_METHODS: { key: NonNullable<UserProfile['tipMethod']>; label: string }
 ];
 
 export default function SettingsScreen() {
-  const { profile, updateProfile, resetOnboarding } = useApp();
+  const {
+    profile, updateProfile, resetOnboarding,
+    workplaces, addWorkplace, updateWorkplace, deleteWorkplace, addWageRate, deleteWageRate,
+  } = useApp();
 
   const [name, setName] = useState(profile.name || '');
   const [workplace, setWorkplace] = useState(profile.workplace || '');
@@ -28,6 +32,23 @@ export default function SettingsScreen() {
   const [dailyGoal, setDailyGoal] = useState(profile.dailyGoal?.toString() || '');
   const [monthlyGoal, setMonthlyGoal] = useState(profile.monthlyGoal?.toString() || '');
   const [yearlyGoal, setYearlyGoal] = useState(profile.yearlyGoal?.toString() || '');
+
+  // Import modal
+  const [importVisible, setImportVisible] = useState(false);
+
+  // Workplace management
+  const [expandedWp, setExpandedWp] = useState<string | null>(null);
+  const [newWpName, setNewWpName] = useState('');
+  const [newWpWage, setNewWpWage] = useState('');
+  const [newWpRole, setNewWpRole] = useState('');
+  const [newWpOvertime, setNewWpOvertime] = useState('');
+  const [showAddWp, setShowAddWp] = useState(false);
+
+  // Add wage rate
+  const [addingWageFor, setAddingWageFor] = useState<string | null>(null);
+  const [newRateDate, setNewRateDate] = useState('');
+  const [newRateWage, setNewRateWage] = useState('');
+  const [newRateOvertime, setNewRateOvertime] = useState('');
 
   useEffect(() => {
     if (profile.role && !ROLES.includes(profile.role)) {
@@ -85,6 +106,46 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleAddWorkplace = () => {
+    if (!newWpName.trim()) return;
+    const wage = parseFloat(newWpWage) || 0;
+    const overtime = parseFloat(newWpOvertime) || undefined;
+    addWorkplace(newWpName.trim(), wage, newWpRole.trim() || undefined, overtime);
+    setNewWpName('');
+    setNewWpWage('');
+    setNewWpRole('');
+    setNewWpOvertime('');
+    setShowAddWp(false);
+  };
+
+  const handleDeleteWorkplace = (wp: Workplace) => {
+    const doDelete = () => deleteWorkplace(wp.id);
+    if (Platform.OS === 'web') {
+      if (confirm(`Remove ${wp.name}? Existing entries will keep their data.`)) doDelete();
+    } else {
+      Alert.alert('Remove Workplace', `Remove ${wp.name}? Existing entries will keep their data.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: doDelete },
+      ]);
+    }
+  };
+
+  const handleAddWageRate = (wpId: string) => {
+    const wage = parseFloat(newRateWage);
+    if (!newRateDate || isNaN(wage)) return;
+    // Expect YYYY-MM-DD or YYYY format
+    let effectiveDate = newRateDate.trim();
+    if (/^\d{4}$/.test(effectiveDate)) {
+      effectiveDate = `${effectiveDate}-01-01`;
+    }
+    const overtime = parseFloat(newRateOvertime) || undefined;
+    addWageRate(wpId, effectiveDate, wage, overtime);
+    setAddingWageFor(null);
+    setNewRateDate('');
+    setNewRateWage('');
+    setNewRateOvertime('');
+  };
+
   const handleRestartOnboarding = () => {
     const doReset = () => resetOnboarding();
 
@@ -102,6 +163,12 @@ export default function SettingsScreen() {
         ]
       );
     }
+  };
+
+  const getCurrentWage = (wp: Workplace): number => {
+    if (wp.wageHistory.length === 0) return 0;
+    const sorted = [...wp.wageHistory].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+    return sorted[0].hourlyWage;
   };
 
   return (
@@ -163,7 +230,7 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Hourly Wage</Text>
+        <Text style={styles.label}>Default Hourly Wage</Text>
         <View style={styles.currencyRow}>
           <Text style={styles.dollar}>$</Text>
           <TextInput
@@ -195,6 +262,183 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      <TouchableOpacity
+        style={[styles.saveBtn, !hasChanges() && styles.saveBtnDisabled]}
+        onPress={handleSave}
+        disabled={!hasChanges()}
+      >
+        <Text style={[styles.saveBtnText, !hasChanges() && styles.saveBtnTextDisabled]}>
+          Save Changes
+        </Text>
+      </TouchableOpacity>
+
+      {/* Workplaces & Wages */}
+      <View style={styles.divider} />
+      <Text style={styles.sectionTitle}>Workplaces & Pay</Text>
+      <Text style={styles.sectionSub}>
+        Manage per-job pay rates. Add a new rate when you get a raise — previous entries keep the old rate.
+      </Text>
+
+      {workplaces.map(wp => {
+        const isExpanded = expandedWp === wp.id;
+        const sortedRates = [...wp.wageHistory].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+        const currentWage = getCurrentWage(wp);
+
+        return (
+          <View key={wp.id} style={styles.wpCard}>
+            <TouchableOpacity
+              style={styles.wpHeader}
+              onPress={() => setExpandedWp(isExpanded ? null : wp.id)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.wpName}>{wp.name}</Text>
+                <Text style={styles.wpMeta}>
+                  {wp.role ? `${wp.role} · ` : ''}${currentWage.toFixed(2)}/hr
+                </Text>
+              </View>
+              <Text style={styles.wpChevron}>{isExpanded ? '▼' : '▶'}</Text>
+            </TouchableOpacity>
+
+            {isExpanded && (
+              <View style={styles.wpBody}>
+                <Text style={styles.wpSubTitle}>Wage History</Text>
+                {sortedRates.map(rate => (
+                  <View key={rate.id} style={styles.rateRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rateWage}>${rate.hourlyWage.toFixed(2)}/hr
+                        {rate.overtimeRate ? ` (OT: $${rate.overtimeRate.toFixed(2)})` : ''}
+                      </Text>
+                      <Text style={styles.rateDate}>From {rate.effectiveDate}</Text>
+                    </View>
+                    {sortedRates.length > 1 && (
+                      <TouchableOpacity onPress={() => deleteWageRate(wp.id, rate.id)} style={styles.rateDeleteBtn}>
+                        <Text style={styles.rateDeleteText}>×</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+
+                {addingWageFor === wp.id ? (
+                  <View style={styles.addRateForm}>
+                    <TextInput
+                      style={styles.rateInput}
+                      value={newRateDate}
+                      onChangeText={setNewRateDate}
+                      placeholder="Effective date (YYYY-MM-DD or YYYY)"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                    <View style={styles.rateInputRow}>
+                      <View style={[styles.currencyRow, { flex: 1 }]}>
+                        <Text style={styles.dollar}>$</Text>
+                        <TextInput
+                          style={styles.currencyInput}
+                          value={newRateWage}
+                          onChangeText={setNewRateWage}
+                          placeholder="Wage"
+                          placeholderTextColor={colors.textMuted}
+                          keyboardType="decimal-pad"
+                        />
+                        <Text style={styles.suffix}>/hr</Text>
+                      </View>
+                      <View style={[styles.currencyRow, { flex: 1, marginLeft: spacing.sm }]}>
+                        <Text style={styles.dollar}>$</Text>
+                        <TextInput
+                          style={styles.currencyInput}
+                          value={newRateOvertime}
+                          onChangeText={setNewRateOvertime}
+                          placeholder="OT (opt)"
+                          placeholderTextColor={colors.textMuted}
+                          keyboardType="decimal-pad"
+                        />
+                        <Text style={styles.suffix}>/hr</Text>
+                      </View>
+                    </View>
+                    <View style={styles.rateInputRow}>
+                      <TouchableOpacity
+                        style={styles.rateCancelBtn}
+                        onPress={() => { setAddingWageFor(null); setNewRateDate(''); setNewRateWage(''); setNewRateOvertime(''); }}
+                      >
+                        <Text style={styles.rateCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.rateSaveBtn} onPress={() => handleAddWageRate(wp.id)}>
+                        <Text style={styles.rateSaveText}>Add Rate</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.addRateBtn} onPress={() => setAddingWageFor(wp.id)}>
+                    <Text style={styles.addRateBtnText}>+ Add Pay Rate</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity style={styles.removeWpBtn} onPress={() => handleDeleteWorkplace(wp)}>
+                  <Text style={styles.removeWpText}>Remove Workplace</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
+      })}
+
+      {showAddWp ? (
+        <View style={styles.addWpForm}>
+          <TextInput
+            style={styles.input}
+            value={newWpName}
+            onChangeText={setNewWpName}
+            placeholder="Workplace name"
+            placeholderTextColor={colors.textMuted}
+          />
+          <TextInput
+            style={[styles.input, { marginTop: spacing.sm }]}
+            value={newWpRole}
+            onChangeText={setNewWpRole}
+            placeholder="Role (optional)"
+            placeholderTextColor={colors.textMuted}
+          />
+          <View style={[styles.rateInputRow, { marginTop: spacing.sm }]}>
+            <View style={[styles.currencyRow, { flex: 1 }]}>
+              <Text style={styles.dollar}>$</Text>
+              <TextInput
+                style={styles.currencyInput}
+                value={newWpWage}
+                onChangeText={setNewWpWage}
+                placeholder="Wage"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.suffix}>/hr</Text>
+            </View>
+            <View style={[styles.currencyRow, { flex: 1, marginLeft: spacing.sm }]}>
+              <Text style={styles.dollar}>$</Text>
+              <TextInput
+                style={styles.currencyInput}
+                value={newWpOvertime}
+                onChangeText={setNewWpOvertime}
+                placeholder="OT (opt)"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.suffix}>/hr</Text>
+            </View>
+          </View>
+          <View style={[styles.rateInputRow, { marginTop: spacing.sm }]}>
+            <TouchableOpacity style={styles.rateCancelBtn} onPress={() => { setShowAddWp(false); setNewWpName(''); setNewWpWage(''); setNewWpRole(''); setNewWpOvertime(''); }}>
+              <Text style={styles.rateCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rateSaveBtn} onPress={handleAddWorkplace}>
+              <Text style={styles.rateSaveText}>Add Workplace</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.addWpBtn} onPress={() => setShowAddWp(true)}>
+          <Text style={styles.addWpBtnText}>+ Add Workplace</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Goals */}
       <View style={styles.divider} />
       <Text style={styles.sectionTitle}>Goals</Text>
 
@@ -243,16 +487,18 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={[styles.saveBtn, !hasChanges() && styles.saveBtnDisabled]}
-        onPress={handleSave}
-        disabled={!hasChanges()}
-      >
-        <Text style={[styles.saveBtnText, !hasChanges() && styles.saveBtnTextDisabled]}>
-          Save Changes
+      {/* Data & Import */}
+      <View style={styles.divider} />
+      <Text style={styles.sectionTitle}>Data</Text>
+
+      <TouchableOpacity style={styles.importBtn} onPress={() => setImportVisible(true)}>
+        <Text style={styles.importBtnText}>Import from CSV</Text>
+        <Text style={styles.importBtnSub}>
+          Import tip data from another app (CSV format)
         </Text>
       </TouchableOpacity>
 
+      {/* Setup */}
       <View style={styles.divider} />
       <Text style={styles.sectionTitle}>Setup</Text>
 
@@ -267,6 +513,8 @@ export default function SettingsScreen() {
       <Text style={styles.versionText}>v2026.02.16 — 3:07 PM</Text>
 
       <View style={{ height: spacing.xxl }} />
+
+      <ImportModal visible={importVisible} onClose={() => setImportVisible(false)} />
     </ScrollView>
   );
 }
@@ -284,6 +532,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.text,
     marginBottom: spacing.md,
+  },
+  sectionSub: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: spacing.md,
+    marginTop: -spacing.sm,
   },
   field: {
     marginBottom: spacing.lg,
@@ -380,6 +635,177 @@ const styles = StyleSheet.create({
   saveBtnTextDisabled: {
     color: colors.textMuted,
   },
+
+  // Workplace styles
+  wpCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  wpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  wpName: {
+    fontSize: fontSize.md,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  wpMeta: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  wpChevron: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginLeft: spacing.sm,
+  },
+  wpBody: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  wpSubTitle: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+  },
+  rateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  rateWage: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  rateDate: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  rateDeleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.redDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rateDeleteText: {
+    fontSize: fontSize.md,
+    color: colors.red,
+    fontWeight: '700',
+  },
+  addRateBtn: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  addRateBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  addRateForm: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  rateInput: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.sm,
+    color: colors.text,
+  },
+  rateInputRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  rateCancelBtn: {
+    flex: 1,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  rateCancelText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  rateSaveBtn: {
+    flex: 1,
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  rateSaveText: {
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+    color: colors.background,
+  },
+  removeWpBtn: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+  },
+  removeWpText: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    color: colors.red,
+  },
+  addWpBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  addWpBtnText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  addWpForm: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+
+  // Import
+  importBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  importBtnText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.accent,
+    marginBottom: spacing.xs,
+  },
+  importBtnSub: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+
   onboardingBtn: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,

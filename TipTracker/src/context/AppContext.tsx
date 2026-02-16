@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// Simple unique ID generator (no crypto dependency)
 const generateId = (): string =>
   Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
-import { TipEntry, Goal, AppData, UserProfile, SavingsGoal } from '../types';
+import { TipEntry, Goal, AppData, UserProfile, Workplace, WageRate } from '../types';
 
 const STORAGE_KEY = '@tiptracker_data';
 
@@ -16,12 +15,19 @@ interface AppContextType {
   goals: Goal[];
   profile: UserProfile;
   daysOff: string[];
+  workplaces: Workplace[];
   addEntry: (entry: Omit<TipEntry, 'id'>) => void;
   updateEntry: (id: string, entry: Partial<TipEntry>) => void;
   deleteEntry: (id: string) => void;
   setGoal: (type: 'weekly' | 'monthly', amount: number) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   toggleDayOff: (date: string) => void;
+  addWorkplace: (name: string, wage: number, role?: string, overtimeRate?: number) => string;
+  updateWorkplace: (id: string, updates: Partial<Pick<Workplace, 'name' | 'role'>>) => void;
+  deleteWorkplace: (id: string) => void;
+  addWageRate: (workplaceId: string, effectiveDate: string, hourlyWage: number, overtimeRate?: number) => void;
+  deleteWageRate: (workplaceId: string, rateId: string) => void;
+  bulkImport: (newEntries: Omit<TipEntry, 'id'>[], newDaysOff: string[], newWorkplaces?: Workplace[]) => void;
   completeOnboarding: (profileData: Partial<UserProfile>) => void;
   resetOnboarding: () => void;
   isLoading: boolean;
@@ -34,6 +40,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [daysOff, setDaysOff] = useState<string[]>([]);
+  const [workplaces, setWorkplaces] = useState<Workplace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -57,6 +64,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setGoals(data.goals || []);
         setProfile(data.profile || DEFAULT_PROFILE);
         setDaysOff(data.daysOff || []);
+        setWorkplaces(data.workplaces || []);
       }
     } catch (e) {
       console.error('Failed to load data', e);
@@ -69,70 +77,142 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newEntry: TipEntry = { ...entry, id: generateId() };
     setEntries(prev => {
       const updated = [...prev, newEntry];
-      saveData({ entries: updated, goals, profile, daysOff });
+      saveData({ entries: updated, goals, profile, daysOff, workplaces });
       return updated;
     });
-  }, [goals, profile, daysOff, saveData]);
+  }, [goals, profile, daysOff, workplaces, saveData]);
 
   const updateEntry = useCallback((id: string, updates: Partial<TipEntry>) => {
     setEntries(prev => {
       const updated = prev.map(e => e.id === id ? { ...e, ...updates } : e);
-      saveData({ entries: updated, goals, profile, daysOff });
+      saveData({ entries: updated, goals, profile, daysOff, workplaces });
       return updated;
     });
-  }, [goals, profile, daysOff, saveData]);
+  }, [goals, profile, daysOff, workplaces, saveData]);
 
   const deleteEntry = useCallback((id: string) => {
     setEntries(prev => {
       const updated = prev.filter(e => e.id !== id);
-      saveData({ entries: updated, goals, profile, daysOff });
+      saveData({ entries: updated, goals, profile, daysOff, workplaces });
       return updated;
     });
-  }, [goals, profile, daysOff, saveData]);
+  }, [goals, profile, daysOff, workplaces, saveData]);
 
   const setGoal = useCallback((type: 'weekly' | 'monthly', amount: number) => {
     setGoals(prev => {
       const filtered = prev.filter(g => g.type !== type);
       const newGoal: Goal = { id: generateId(), type, amount, createdAt: new Date().toISOString() };
       const updated = [...filtered, newGoal];
-      saveData({ entries, goals: updated, profile, daysOff });
+      saveData({ entries, goals: updated, profile, daysOff, workplaces });
       return updated;
     });
-  }, [entries, profile, daysOff, saveData]);
+  }, [entries, profile, daysOff, workplaces, saveData]);
 
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     setProfile(prev => {
       const updated = { ...prev, ...updates };
-      saveData({ entries, goals, profile: updated, daysOff });
+      saveData({ entries, goals, profile: updated, daysOff, workplaces });
       return updated;
     });
-  }, [entries, goals, daysOff, saveData]);
+  }, [entries, goals, daysOff, workplaces, saveData]);
 
   const toggleDayOff = useCallback((date: string) => {
     setDaysOff(prev => {
       const updated = prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date];
-      saveData({ entries, goals, profile, daysOff: updated });
+      saveData({ entries, goals, profile, daysOff: updated, workplaces });
       return updated;
     });
-  }, [entries, goals, profile, saveData]);
+  }, [entries, goals, profile, workplaces, saveData]);
+
+  const addWorkplace = useCallback((name: string, wage: number, role?: string, overtimeRate?: number): string => {
+    const id = generateId();
+    const wageRate: WageRate = {
+      id: generateId(),
+      effectiveDate: '2000-01-01',
+      hourlyWage: wage,
+      overtimeRate,
+    };
+    const wp: Workplace = { id, name, role, wageHistory: [wageRate] };
+    setWorkplaces(prev => {
+      const updated = [...prev, wp];
+      saveData({ entries, goals, profile, daysOff, workplaces: updated });
+      return updated;
+    });
+    return id;
+  }, [entries, goals, profile, daysOff, saveData]);
+
+  const updateWorkplace = useCallback((id: string, updates: Partial<Pick<Workplace, 'name' | 'role'>>) => {
+    setWorkplaces(prev => {
+      const updated = prev.map(w => w.id === id ? { ...w, ...updates } : w);
+      saveData({ entries, goals, profile, daysOff, workplaces: updated });
+      return updated;
+    });
+  }, [entries, goals, profile, daysOff, saveData]);
+
+  const deleteWorkplace = useCallback((id: string) => {
+    setWorkplaces(prev => {
+      const updated = prev.filter(w => w.id !== id);
+      saveData({ entries, goals, profile, daysOff, workplaces: updated });
+      return updated;
+    });
+  }, [entries, goals, profile, daysOff, saveData]);
+
+  const addWageRate = useCallback((workplaceId: string, effectiveDate: string, hourlyWage: number, overtimeRate?: number) => {
+    const rate: WageRate = { id: generateId(), effectiveDate, hourlyWage, overtimeRate };
+    setWorkplaces(prev => {
+      const updated = prev.map(w => {
+        if (w.id !== workplaceId) return w;
+        return { ...w, wageHistory: [...w.wageHistory, rate] };
+      });
+      saveData({ entries, goals, profile, daysOff, workplaces: updated });
+      return updated;
+    });
+  }, [entries, goals, profile, daysOff, saveData]);
+
+  const deleteWageRate = useCallback((workplaceId: string, rateId: string) => {
+    setWorkplaces(prev => {
+      const updated = prev.map(w => {
+        if (w.id !== workplaceId) return w;
+        return { ...w, wageHistory: w.wageHistory.filter(r => r.id !== rateId) };
+      });
+      saveData({ entries, goals, profile, daysOff, workplaces: updated });
+      return updated;
+    });
+  }, [entries, goals, profile, daysOff, saveData]);
+
+  const bulkImport = useCallback((newEntries: Omit<TipEntry, 'id'>[], newDaysOff: string[], newWorkplaces?: Workplace[]) => {
+    const entriesWithIds: TipEntry[] = newEntries.map(e => ({ ...e, id: generateId() }));
+    setEntries(prev => {
+      const updated = [...prev, ...entriesWithIds];
+      const mergedDaysOff = [...new Set([...daysOff, ...newDaysOff])];
+      const mergedWorkplaces = newWorkplaces ? [...workplaces, ...newWorkplaces] : workplaces;
+      setDaysOff(mergedDaysOff);
+      if (newWorkplaces) setWorkplaces(mergedWorkplaces);
+      saveData({ entries: updated, goals, profile, daysOff: mergedDaysOff, workplaces: mergedWorkplaces });
+      return updated;
+    });
+  }, [goals, profile, daysOff, workplaces, saveData]);
 
   const completeOnboarding = useCallback((profileData: Partial<UserProfile>) => {
     const updated: UserProfile = { ...profile, ...profileData, onboardingCompleted: true };
     setProfile(updated);
-    saveData({ entries, goals, profile: updated, daysOff });
-  }, [entries, goals, profile, daysOff, saveData]);
+    saveData({ entries, goals, profile: updated, daysOff, workplaces });
+  }, [entries, goals, profile, daysOff, workplaces, saveData]);
 
   const resetOnboarding = useCallback(() => {
     const updated: UserProfile = { ...profile, onboardingCompleted: false };
     setProfile(updated);
-    saveData({ entries, goals, profile: updated, daysOff });
-  }, [entries, goals, profile, daysOff, saveData]);
+    saveData({ entries, goals, profile: updated, daysOff, workplaces });
+  }, [entries, goals, profile, daysOff, workplaces, saveData]);
 
   return (
     <AppContext.Provider value={{
-      entries, goals, profile, daysOff,
+      entries, goals, profile, daysOff, workplaces,
       addEntry, updateEntry, deleteEntry, setGoal,
-      updateProfile, toggleDayOff, completeOnboarding, resetOnboarding,
+      updateProfile, toggleDayOff,
+      addWorkplace, updateWorkplace, deleteWorkplace, addWageRate, deleteWageRate,
+      bulkImport,
+      completeOnboarding, resetOnboarding,
       isLoading,
     }}>
       {children}

@@ -9,6 +9,7 @@ export interface TipEntry {
   tipOut: number;
   shiftType: 'lunch' | 'dinner' | 'double' | 'other';
   notes?: string;
+  workplaceId?: string;
 }
 
 export interface Goal {
@@ -25,6 +26,20 @@ export interface SavingsGoal {
   contributionPerShift: number;
   totalContributed: number;
   createdAt: string;
+}
+
+export interface WageRate {
+  id: string;
+  effectiveDate: string; // YYYY-MM-DD
+  hourlyWage: number;
+  overtimeRate?: number;
+}
+
+export interface Workplace {
+  id: string;
+  name: string;
+  role?: string;
+  wageHistory: WageRate[];
 }
 
 export interface UserProfile {
@@ -44,7 +59,8 @@ export interface AppData {
   entries: TipEntry[];
   goals: Goal[];
   profile: UserProfile;
-  daysOff?: string[]; // YYYY-MM-DD dates marked as days off
+  daysOff?: string[];
+  workplaces?: Workplace[];
 }
 
 export type ShiftType = TipEntry['shiftType'];

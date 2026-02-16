@@ -1,4 +1,4 @@
-import { TipEntry } from '../types';
+import { TipEntry, Workplace } from '../types';
 
 export function totalTips(entry: TipEntry): number {
   return entry.cashTips + entry.cardTips - entry.tipOut;
@@ -109,6 +109,23 @@ const MONTH_SHORT = [
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export { MONTH_NAMES, MONTH_SHORT, DAY_NAMES };
+
+export function getWageForEntry(entry: TipEntry, workplaces: Workplace[], fallbackWage: number): number {
+  if (!entry.workplaceId) return fallbackWage;
+  const wp = workplaces.find(w => w.id === entry.workplaceId);
+  if (!wp || wp.wageHistory.length === 0) return fallbackWage;
+  const sorted = [...wp.wageHistory].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+  const rate = sorted.find(r => r.effectiveDate <= entry.date);
+  return rate ? rate.hourlyWage : sorted[sorted.length - 1].hourlyWage;
+}
+
+export function combinedAvgForEntries(entries: TipEntry[], workplaces: Workplace[], fallbackWage: number): number {
+  const hrs = totalHours(entries);
+  if (hrs === 0) return 0;
+  const totalWages = entries.reduce((sum, e) => sum + getWageForEntry(e, workplaces, fallbackWage) * e.hoursWorked, 0);
+  const tips = totalEarnings(entries);
+  return (tips + totalWages) / hrs;
+}
 
 // Time calculation helpers
 export function parseTimeString(timeStr: string): { hours: number; minutes: number } | null {

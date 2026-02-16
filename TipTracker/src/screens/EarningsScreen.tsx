@@ -8,12 +8,13 @@ import {
   getEntriesForWeek,
   getEntriesForMonth,
   formatCurrency,
+  getWageForEntry,
 } from '../utils/helpers';
 
 type Period = 'week' | 'month' | 'all';
 
 export default function EarningsScreen() {
-  const { entries, profile } = useApp();
+  const { entries, profile, workplaces } = useApp();
   const [period, setPeriod] = useState<Period>('week');
 
   // Filter entries based on selected period
@@ -34,8 +35,8 @@ export default function EarningsScreen() {
   const filteredEntries = getFilteredEntries();
   const totalTipsEarned = filteredEntries.reduce((sum, e) => sum + totalTips(e), 0);
   const totalHoursWorked = totalHours(filteredEntries);
-  const wagesPerHour = profile.hourlyWage || 0;
-  const totalWages = wagesPerHour * totalHoursWorked;
+  const fallbackWage = profile.hourlyWage || 0;
+  const totalWages = filteredEntries.reduce((sum, e) => sum + getWageForEntry(e, workplaces, fallbackWage) * e.hoursWorked, 0);
   const totalEarnings = totalTipsEarned + totalWages;
   // Avg tips/hour = total tips across all shifts / total hours across all shifts
   const tipsPerHour = totalHoursWorked > 0 ? totalTipsEarned / totalHoursWorked : 0;
