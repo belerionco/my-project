@@ -7,6 +7,7 @@ export interface TipEntry {
   cashTips: number;
   cardTips: number;
   tipOut: number;
+  totalSales?: number;
   shiftType: 'lunch' | 'dinner' | 'double' | 'other';
   notes?: string;
   workplaceId?: string;

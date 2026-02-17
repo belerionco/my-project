@@ -28,6 +28,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
         setCashTips(editingEntry.cashTips.toString());
         setCardTips(editingEntry.cardTips.toString());
         setTipOut(editingEntry.tipOut.toString());
+        setTotalSales(editingEntry.totalSales ? editingEntry.totalSales.toString() : '');
         setSelectedWorkplaceId(editingEntry.workplaceId);
         setNotes(editingEntry.notes || '');
         if (editingEntry.startTime && editingEntry.endTime) {
@@ -49,6 +50,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
   const [cashTips, setCashTips] = useState('');
   const [cardTips, setCardTips] = useState('');
   const [tipOut, setTipOut] = useState('');
+  const [totalSales, setTotalSales] = useState('');
   const [selectedWorkplaceId, setSelectedWorkplaceId] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState('');
 
@@ -68,6 +70,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
     setCashTips('');
     setCardTips('');
     setTipOut('');
+    setTotalSales('');
     setSelectedWorkplaceId(workplaces.length === 1 ? workplaces[0].id : undefined);
     setNotes('');
   };
@@ -92,6 +95,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
       cashTips: parseFloat(cashTips) || 0,
       cardTips: parseFloat(cardTips) || 0,
       tipOut: parseFloat(tipOut) || 0,
+      totalSales: parseFloat(totalSales) || undefined,
       shiftType: 'other' as const,
       notes: notes.trim() || undefined,
       workplaceId: selectedWorkplaceId,
@@ -283,6 +287,20 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
                 style={styles.input}
                 value={tipOut}
                 onChangeText={setTipOut}
+                placeholder="0.00"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            {/* Total Sales (optional) */}
+            <Text style={styles.label}>Total Sales (optional)</Text>
+            <View style={styles.inputRow}>
+              <Text style={styles.inputPrefix}>$</Text>
+              <TextInput
+                style={styles.input}
+                value={totalSales}
+                onChangeText={setTotalSales}
                 placeholder="0.00"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"

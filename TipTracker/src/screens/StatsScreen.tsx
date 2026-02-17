@@ -10,13 +10,14 @@ import {
   averageTipsPerShift,
   getEntriesForMonth,
   getWeekStart,
+  toDateKey,
   formatCurrency,
   MONTH_NAMES,
   DAY_NAMES,
 } from '../utils/helpers';
 import { TipEntry } from '../types';
 
-type Period = 'week' | 'month' | 'year';
+type Period = 'day' | 'week' | 'month' | 'year';
 
 export default function StatsScreen() {
   const { entries, profile } = useApp();
@@ -27,6 +28,10 @@ export default function StatsScreen() {
   const filteredEntries = useMemo(() => {
     const today = new Date();
     switch (period) {
+      case 'day': {
+        const todayKey = toDateKey(today);
+        return entries.filter(e => e.date === todayKey);
+      }
       case 'week': {
         const weekStart = getWeekStart(today, weekStartsOn);
         return entries.filter(e => new Date(e.date + 'T12:00:00') >= weekStart);
@@ -45,6 +50,12 @@ export default function StatsScreen() {
   const totalTipOut = filteredEntries.reduce((sum, e) => sum + e.tipOut, 0);
   const totalCash = filteredEntries.reduce((sum, e) => sum + e.cashTips, 0);
   const totalCard = filteredEntries.reduce((sum, e) => sum + e.cardTips, 0);
+
+  // Tip percentage based on sales
+  const entriesWithSales = filteredEntries.filter(e => e.totalSales && e.totalSales > 0);
+  const totalSalesAmount = entriesWithSales.reduce((sum, e) => sum + (e.totalSales || 0), 0);
+  const totalTipsOnSales = entriesWithSales.reduce((sum, e) => sum + e.cashTips + e.cardTips - e.tipOut, 0);
+  const avgTipPercentage = totalSalesAmount > 0 ? (totalTipsOnSales / totalSalesAmount) * 100 : null;
 
   // Best day
   const bestDay = useMemo(() => {
@@ -106,7 +117,7 @@ export default function StatsScreen() {
 
         {/* Period Selector */}
         <View style={styles.periodRow}>
-          {(['week', 'month', 'year'] as Period[]).map(p => (
+          {(['day', 'week', 'month', 'year'] as Period[]).map(p => (
             <TouchableOpacity
               key={p}
               style={[styles.periodBtn, period === p && styles.periodBtnActive]}
@@ -137,6 +148,18 @@ export default function StatsScreen() {
             <Text style={styles.statValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(avgShift)}</Text>
             <Text style={styles.statLabel}>Avg/Shift</Text>
           </View>
+          {avgTipPercentage !== null && (
+            <View style={styles.statCard}>
+              <Text style={styles.statValue} adjustsFontSizeToFit numberOfLines={1}>{avgTipPercentage.toFixed(1)}%</Text>
+              <Text style={styles.statLabel}>Tip %</Text>
+            </View>
+          )}
+          {avgTipPercentage !== null && (
+            <View style={styles.statCard}>
+              <Text style={styles.statValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(totalSalesAmount)}</Text>
+              <Text style={styles.statLabel}>Total Sales</Text>
+            </View>
+          )}
         </View>
 
         {/* Earnings Breakdown */}

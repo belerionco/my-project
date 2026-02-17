@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import {
@@ -63,6 +64,59 @@ export default function GoalsScreen() {
 
   const weekProgress = weeklyGoal ? Math.min(1, weekTotal / weeklyGoal.amount) : 0;
   const monthProgress = monthlyGoal ? Math.min(1, monthTotal / monthlyGoal.amount) : 0;
+
+  // Confetti celebration
+  const [showConfetti, setShowConfetti] = useState(false);
+  const confettiRef = useRef<any>(null);
+  const prevGoalsMet = useRef<Set<string>>(new Set());
+  const hasInitialized = useRef(false);
+
+  const currentGoalsMet = useMemo(() => {
+    const met = new Set<string>();
+    if (weeklyGoal && weekTotal >= weeklyGoal.amount) met.add('weekly');
+    if (monthlyGoal && monthTotal >= monthlyGoal.amount) met.add('monthly');
+    const yearlyGoalAmount = profile.yearlyGoal || 0;
+    const yearEntries = entries.filter(e => e.date.startsWith(String(now.getFullYear())));
+    const yearTotal = totalEarnings(yearEntries);
+    if (yearlyGoalAmount > 0 && yearTotal >= yearlyGoalAmount) met.add('yearly');
+    if (profile.savingsGoal) {
+      const sg = profile.savingsGoal;
+      const contributed = sg.contributionPerShift * entries.length;
+      if (contributed >= sg.targetAmount) met.add('savings');
+    }
+    customGoals.forEach(goal => {
+      const goalStartDate = goal.createdAt.slice(0, 10);
+      const entriesSinceGoal = entries.filter(e => e.date >= goalStartDate);
+      const contributed = (goal.contributionPerShift || 0) * entriesSinceGoal.length;
+      if (contributed >= goal.amount) met.add(`custom-${goal.id}`);
+    });
+    return met;
+  }, [weeklyGoal, weekTotal, monthlyGoal, monthTotal, profile, entries, customGoals]);
+
+  const fireConfetti = useCallback(() => {
+    setShowConfetti(true);
+    confettiRef.current?.start();
+  }, []);
+
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      // First render: record current state without firing
+      hasInitialized.current = true;
+      prevGoalsMet.current = currentGoalsMet;
+      return;
+    }
+    // Check if any new goal was just reached
+    let newGoalReached = false;
+    currentGoalsMet.forEach(key => {
+      if (!prevGoalsMet.current.has(key)) {
+        newGoalReached = true;
+      }
+    });
+    if (newGoalReached) {
+      fireConfetti();
+    }
+    prevGoalsMet.current = currentGoalsMet;
+  }, [currentGoalsMet, fireConfetti]);
 
   const saveWeeklyGoal = () => {
     const amount = parseFloat(weeklyInput);
@@ -157,6 +211,7 @@ export default function GoalsScreen() {
   const shiftsNeeded = avgPerShift > 0 ? Math.ceil(monthlyRemaining / avgPerShift) : 0;
 
   return (
+    <>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -701,6 +756,20 @@ export default function GoalsScreen() {
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
     </KeyboardAvoidingView>
+    {showConfetti && (
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart
+        fadeOut
+        fallSpeed={3000}
+        explosionSpeed={350}
+        onAnimationEnd={() => setShowConfetti(false)}
+        colors={[colors.accent, colors.gold, colors.success, '#FF6B6B', '#4ECDC4', '#FFE66D']}
+      />
+    )}
+    </>
   );
 }
 
