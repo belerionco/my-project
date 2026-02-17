@@ -20,8 +20,8 @@ interface AppContextType {
   updateEntry: (id: string, entry: Partial<TipEntry>) => void;
   deleteEntry: (id: string) => void;
   setGoal: (type: 'weekly' | 'monthly', amount: number) => void;
-  addCustomGoal: (name: string, amount: number, contributionPerShift: number) => void;
-  updateCustomGoal: (id: string, name: string, amount: number, contributionPerShift: number) => void;
+  addCustomGoal: (name: string, amount: number, contributionPerShift: number, startDate?: string) => void;
+  updateCustomGoal: (id: string, name: string, amount: number, contributionPerShift: number, startDate?: string) => void;
   deleteGoal: (id: string) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   toggleDayOff: (date: string) => void;
@@ -111,8 +111,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [entries, profile, daysOff, workplaces, saveData]);
 
-  const addCustomGoal = useCallback((name: string, amount: number, contributionPerShift: number) => {
+  const addCustomGoal = useCallback((name: string, amount: number, contributionPerShift: number, startDate?: string) => {
     setGoals(prev => {
+      const createdAt = startDate ? new Date(startDate + 'T00:00:00').toISOString() : new Date().toISOString();
       const newGoal: Goal = {
         id: generateId(),
         type: 'custom',
@@ -120,7 +121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         amount,
         contributionPerShift,
         totalContributed: 0,
-        createdAt: new Date().toISOString(),
+        createdAt,
       };
       const updated = [...prev, newGoal];
       saveData({ entries, goals: updated, profile, daysOff, workplaces });
@@ -128,9 +129,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [entries, profile, daysOff, workplaces, saveData]);
 
-  const updateCustomGoal = useCallback((id: string, name: string, amount: number, contributionPerShift: number) => {
+  const updateCustomGoal = useCallback((id: string, name: string, amount: number, contributionPerShift: number, startDate?: string) => {
     setGoals(prev => {
-      const updated = prev.map(g => g.id === id ? { ...g, name, amount, contributionPerShift } : g);
+      const updated = prev.map(g => {
+        if (g.id !== id) return g;
+        const updates: Partial<Goal> = { name, amount, contributionPerShift };
+        if (startDate) updates.createdAt = new Date(startDate + 'T00:00:00').toISOString();
+        return { ...g, ...updates };
+      });
       saveData({ entries, goals: updated, profile, daysOff, workplaces });
       return updated;
     });

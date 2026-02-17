@@ -10,6 +10,7 @@ import {
   getEntriesForWeek,
   totalEarnings,
   formatCurrency,
+  toDateKey,
   MONTH_NAMES,
 } from '../utils/helpers';
 
@@ -29,10 +30,24 @@ export default function GoalsScreen() {
   const [customGoalName, setCustomGoalName] = useState('');
   const [customGoalAmount, setCustomGoalAmount] = useState('');
   const [customGoalContribution, setCustomGoalContribution] = useState('');
+  const [customGoalStartDate, setCustomGoalStartDate] = useState(toDateKey(new Date()));
   const [editingCustomGoalId, setEditingCustomGoalId] = useState<string | null>(null);
   const [editCustomName, setEditCustomName] = useState('');
   const [editCustomAmount, setEditCustomAmount] = useState('');
   const [editCustomContribution, setEditCustomContribution] = useState('');
+  const [editCustomStartDate, setEditCustomStartDate] = useState('');
+
+  const formatDateDisplay = (dateStr: string) => {
+    const parts = dateStr.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const changeStartDate = (dateStr: string, offset: number, setter: (d: string) => void) => {
+    const parts = dateStr.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2] + offset);
+    setter(toDateKey(d));
+  };
 
   const now = new Date();
   const weeklyGoal = goals.find(g => g.type === 'weekly');
@@ -105,11 +120,12 @@ export default function GoalsScreen() {
     const amount = parseFloat(customGoalAmount);
     const contribution = parseFloat(customGoalContribution);
     if (amount > 0 && contribution > 0 && customGoalName.trim()) {
-      addCustomGoal(customGoalName.trim(), amount, contribution);
+      addCustomGoal(customGoalName.trim(), amount, contribution, customGoalStartDate);
       setAddingCustomGoal(false);
       setCustomGoalName('');
       setCustomGoalAmount('');
       setCustomGoalContribution('');
+      setCustomGoalStartDate(toDateKey(new Date()));
     }
   };
 
@@ -118,7 +134,7 @@ export default function GoalsScreen() {
     const amount = parseFloat(editCustomAmount);
     const contribution = parseFloat(editCustomContribution);
     if (amount > 0 && contribution > 0 && editCustomName.trim()) {
-      updateCustomGoal(editingCustomGoalId, editCustomName.trim(), amount, contribution);
+      updateCustomGoal(editingCustomGoalId, editCustomName.trim(), amount, contribution, editCustomStartDate);
       setEditingCustomGoalId(null);
       setEditCustomName('');
       setEditCustomAmount('');
@@ -198,6 +214,18 @@ export default function GoalsScreen() {
                 />
               </View>
             </View>
+            <View style={styles.savingsInputGroup}>
+              <Text style={styles.savingsInputLabel}>Start Tracking From</Text>
+              <View style={styles.dateRow}>
+                <TouchableOpacity onPress={() => changeStartDate(customGoalStartDate, -1, setCustomGoalStartDate)} style={styles.dateNav}>
+                  <Text style={styles.dateNavText}>{'<'}</Text>
+                </TouchableOpacity>
+                <Text style={styles.dateText}>{formatDateDisplay(customGoalStartDate)}</Text>
+                <TouchableOpacity onPress={() => changeStartDate(customGoalStartDate, 1, setCustomGoalStartDate)} style={styles.dateNav}>
+                  <Text style={styles.dateNavText}>{'>'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             <View style={styles.savingsBtnRow}>
               <TouchableOpacity style={styles.saveBtn} onPress={saveCustomGoal}>
                 <Text style={styles.saveBtnText}>Save</Text>
@@ -209,6 +237,7 @@ export default function GoalsScreen() {
                   setCustomGoalName('');
                   setCustomGoalAmount('');
                   setCustomGoalContribution('');
+                  setCustomGoalStartDate(toDateKey(new Date()));
                 }}
               >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -533,6 +562,7 @@ export default function GoalsScreen() {
                     setEditCustomName(goal.name || '');
                     setEditCustomAmount(String(goal.amount));
                     setEditCustomContribution(String(goal.contributionPerShift || ''));
+                    setEditCustomStartDate(goal.createdAt.slice(0, 10));
                   }
                 }}>
                   <Text style={styles.editBtn}>{isEditing ? 'Cancel' : 'Edit'}</Text>
@@ -578,6 +608,18 @@ export default function GoalsScreen() {
                         placeholderTextColor={colors.textMuted}
                         keyboardType="decimal-pad"
                       />
+                    </View>
+                  </View>
+                  <View style={styles.savingsInputGroup}>
+                    <Text style={styles.savingsInputLabel}>Start Tracking From</Text>
+                    <View style={styles.dateRow}>
+                      <TouchableOpacity onPress={() => changeStartDate(editCustomStartDate, -1, setEditCustomStartDate)} style={styles.dateNav}>
+                        <Text style={styles.dateNavText}>{'<'}</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.dateText}>{formatDateDisplay(editCustomStartDate)}</Text>
+                      <TouchableOpacity onPress={() => changeStartDate(editCustomStartDate, 1, setEditCustomStartDate)} style={styles.dateNav}>
+                        <Text style={styles.dateNavText}>{'>'}</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                   <View style={styles.savingsBtnRow}>
@@ -932,5 +974,27 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textMuted,
     marginTop: spacing.xs,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+  },
+  dateNav: {
+    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  dateNavText: {
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  dateText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.text,
+    minWidth: 140,
+    textAlign: 'center',
   },
 });

@@ -513,7 +513,7 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       {/* Version */}
-      <Text style={styles.versionText}>Version 4</Text>
+      <Text style={styles.versionText}>Version 5</Text>
 
       <View style={{ height: spacing.xxl }} />
 
