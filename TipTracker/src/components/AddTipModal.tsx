@@ -6,7 +6,7 @@ import {
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import { toDateKey, calculateHoursWorked, formatHoursMinutes, getWageForEntry } from '../utils/helpers';
-import { TipEntry } from '../types';
+import { TipEntry, ShiftType } from '../types';
 
 interface AddTipModalProps {
   visible: boolean;
@@ -30,6 +30,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
         setTipOut(editingEntry.tipOut.toString());
         setTotalSales(editingEntry.totalSales ? editingEntry.totalSales.toString() : '');
         setSelectedWorkplaceId(editingEntry.workplaceId);
+        setShiftType(editingEntry.shiftType || 'other');
         setNotes(editingEntry.notes || '');
         if (editingEntry.startTime && editingEntry.endTime) {
           setUseTimeCalculator(true);
@@ -52,6 +53,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
   const [tipOut, setTipOut] = useState('');
   const [totalSales, setTotalSales] = useState('');
   const [selectedWorkplaceId, setSelectedWorkplaceId] = useState<string | undefined>(undefined);
+  const [shiftType, setShiftType] = useState<ShiftType>('other');
   const [notes, setNotes] = useState('');
 
   // Auto-select if only one workplace
@@ -72,6 +74,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
     setTipOut('');
     setTotalSales('');
     setSelectedWorkplaceId(workplaces.length === 1 ? workplaces[0].id : undefined);
+    setShiftType('other');
     setNotes('');
   };
 
@@ -96,7 +99,7 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
       cardTips: parseFloat(cardTips) || 0,
       tipOut: parseFloat(tipOut) || 0,
       totalSales: parseFloat(totalSales) || undefined,
-      shiftType: 'other' as const,
+      shiftType,
       notes: notes.trim() || undefined,
       workplaceId: selectedWorkplaceId,
     };
@@ -189,6 +192,22 @@ export default function AddTipModal({ visible, onClose, initialDate, editingEntr
                 </View>
               </>
             )}
+
+            {/* Shift Type */}
+            <Text style={styles.label}>Shift</Text>
+            <View style={styles.shiftRow}>
+              {(['breakfast', 'lunch', 'dinner'] as ShiftType[]).map(type => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.shiftBtn, shiftType === type && styles.shiftBtnActive]}
+                  onPress={() => setShiftType(type)}
+                >
+                  <Text style={[styles.shiftBtnText, shiftType === type && styles.shiftBtnTextActive]}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {/* Hours - Toggle between time calculator and manual */}
             <View style={styles.hoursHeader}>
