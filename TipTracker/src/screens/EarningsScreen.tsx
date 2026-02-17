@@ -22,7 +22,7 @@ export default function EarningsScreen() {
     const now = new Date();
     switch (period) {
       case 'week':
-        return getEntriesForWeek(entries, now);
+        return getEntriesForWeek(entries, now, profile.weekStartsOn ?? 0);
       case 'month':
         return getEntriesForMonth(entries, now.getFullYear(), now.getMonth());
       case 'all':

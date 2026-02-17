@@ -24,7 +24,8 @@ export default function GoalsScreen() {
   const weeklyGoal = goals.find(g => g.type === 'weekly');
   const monthlyGoal = goals.find(g => g.type === 'monthly');
 
-  const weekEntries = useMemo(() => getEntriesForWeek(entries, now), [entries]);
+  const weekStartsOn = profile.weekStartsOn ?? 0;
+  const weekEntries = useMemo(() => getEntriesForWeek(entries, now, weekStartsOn), [entries, weekStartsOn]);
   const monthEntries = useMemo(() => getEntriesForMonth(entries, now.getFullYear(), now.getMonth()), [entries]);
 
   const weekTotal = totalEarnings(weekEntries);
@@ -53,7 +54,7 @@ export default function GoalsScreen() {
 
   // Calculate days/shifts remaining projections
   const daysLeftInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
-  const dayOfWeek = now.getDay();
+  const dayOfWeek = (now.getDay() - weekStartsOn + 7) % 7;
   const daysLeftInWeek = 6 - dayOfWeek;
 
   const avgPerShift = monthEntries.length > 0 ? monthTotal / monthEntries.length : 0;

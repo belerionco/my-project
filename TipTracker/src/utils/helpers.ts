@@ -24,16 +24,17 @@ export function getMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export function getWeekStart(date: Date): Date {
+export function getWeekStart(date: Date, weekStartsOn: number = 0): Date {
   const d = new Date(date);
   const day = d.getDay();
-  d.setDate(d.getDate() - day);
+  const diff = (day - weekStartsOn + 7) % 7;
+  d.setDate(d.getDate() - diff);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-export function getWeekEnd(date: Date): Date {
-  const start = getWeekStart(date);
+export function getWeekEnd(date: Date, weekStartsOn: number = 0): Date {
+  const start = getWeekStart(date, weekStartsOn);
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
   end.setHours(23, 59, 59, 999);
@@ -65,9 +66,9 @@ export function getEntriesForMonth(entries: TipEntry[], year: number, month: num
   return entries.filter(e => e.date.startsWith(key));
 }
 
-export function getEntriesForWeek(entries: TipEntry[], date: Date): TipEntry[] {
-  const start = getWeekStart(date);
-  const end = getWeekEnd(date);
+export function getEntriesForWeek(entries: TipEntry[], date: Date, weekStartsOn: number = 0): TipEntry[] {
+  const start = getWeekStart(date, weekStartsOn);
+  const end = getWeekEnd(date, weekStartsOn);
   return entries.filter(e => {
     const d = parseDate(e.date);
     return d >= start && d <= end;

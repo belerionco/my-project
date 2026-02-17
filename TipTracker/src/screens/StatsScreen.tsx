@@ -9,6 +9,7 @@ import {
   averageHourlyRate,
   averageTipsPerShift,
   getEntriesForMonth,
+  getWeekStart,
   formatCurrency,
   MONTH_NAMES,
   DAY_NAMES,
@@ -18,17 +19,16 @@ import { TipEntry } from '../types';
 type Period = 'week' | 'month' | 'year';
 
 export default function StatsScreen() {
-  const { entries } = useApp();
+  const { entries, profile } = useApp();
   const [period, setPeriod] = useState<Period>('month');
   const now = new Date();
+  const weekStartsOn = profile.weekStartsOn ?? 0;
 
   const filteredEntries = useMemo(() => {
     const today = new Date();
     switch (period) {
       case 'week': {
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        weekStart.setHours(0, 0, 0, 0);
+        const weekStart = getWeekStart(today, weekStartsOn);
         return entries.filter(e => new Date(e.date + 'T12:00:00') >= weekStart);
       }
       case 'month':

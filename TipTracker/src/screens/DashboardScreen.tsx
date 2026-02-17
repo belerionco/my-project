@@ -25,7 +25,8 @@ export default function DashboardScreen({ onAddTip }: DashboardScreenProps) {
   const month = now.getMonth();
 
   const monthEntries = useMemo(() => getEntriesForMonth(entries, year, month), [entries, year, month]);
-  const weekEntries = useMemo(() => getEntriesForWeek(entries, now), [entries]);
+  const weekStartsOn = profile.weekStartsOn ?? 0;
+  const weekEntries = useMemo(() => getEntriesForWeek(entries, now, weekStartsOn), [entries, weekStartsOn]);
 
   const monthlyGoal = goals.find(g => g.type === 'monthly');
   const weeklyGoal = goals.find(g => g.type === 'weekly');

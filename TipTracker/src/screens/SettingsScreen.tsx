@@ -9,11 +9,14 @@ import { UserProfile, Workplace } from '../types';
 import ImportModal from '../components/ImportModal';
 
 const ROLES = ['Server', 'Bartender', 'Delivery Driver', 'Barista', 'Expo', 'Food Runner'];
-const TIP_METHODS: { key: NonNullable<UserProfile['tipMethod']>; label: string }[] = [
-  { key: 'cash', label: 'Cash' },
-  { key: 'card', label: 'Card' },
-  { key: 'both', label: 'Both' },
-  { key: 'pooled', label: 'Pooled' },
+const WEEK_DAYS: { key: NonNullable<UserProfile['weekStartsOn']>; label: string }[] = [
+  { key: 0, label: 'Sunday' },
+  { key: 1, label: 'Monday' },
+  { key: 2, label: 'Tuesday' },
+  { key: 3, label: 'Wednesday' },
+  { key: 4, label: 'Thursday' },
+  { key: 5, label: 'Friday' },
+  { key: 6, label: 'Saturday' },
 ];
 
 export default function SettingsScreen() {
@@ -28,7 +31,7 @@ export default function SettingsScreen() {
   const [customRole, setCustomRole] = useState('');
   const [isCustomRole, setIsCustomRole] = useState(false);
   const [hourlyWage, setHourlyWage] = useState(profile.hourlyWage?.toString() || '');
-  const [tipMethod, setTipMethod] = useState<UserProfile['tipMethod']>(profile.tipMethod);
+  const [weekStartsOn, setWeekStartsOn] = useState<NonNullable<UserProfile['weekStartsOn']>>(profile.weekStartsOn ?? 0);
   const [dailyGoal, setDailyGoal] = useState(profile.dailyGoal?.toString() || '');
   const [monthlyGoal, setMonthlyGoal] = useState(profile.monthlyGoal?.toString() || '');
   const [yearlyGoal, setYearlyGoal] = useState(profile.yearlyGoal?.toString() || '');
@@ -72,7 +75,7 @@ export default function SettingsScreen() {
       workplace.trim() !== (profile.workplace || '') ||
       currentRole !== (profile.role || '') ||
       (isNaN(wage) ? undefined : wage) !== profile.hourlyWage ||
-      tipMethod !== profile.tipMethod ||
+      weekStartsOn !== (profile.weekStartsOn ?? 0) ||
       (isNaN(daily) ? undefined : daily) !== profile.dailyGoal ||
       (isNaN(monthly) ? undefined : monthly) !== profile.monthlyGoal ||
       (isNaN(yearly) ? undefined : yearly) !== profile.yearlyGoal
@@ -91,7 +94,7 @@ export default function SettingsScreen() {
       workplace: workplace.trim() || undefined,
       role: currentRole || undefined,
       hourlyWage: !isNaN(wage) && wage > 0 ? wage : undefined,
-      tipMethod: tipMethod,
+      weekStartsOn: weekStartsOn,
       dailyGoal: !isNaN(daily) && daily > 0 ? daily : undefined,
       monthlyGoal: !isNaN(monthly) && monthly > 0 ? monthly : undefined,
       yearlyGoal: !isNaN(yearly) && yearly > 0 ? yearly : undefined,
@@ -246,16 +249,16 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Tip Method</Text>
+        <Text style={styles.label}>Week Starts On</Text>
         <View style={styles.chipRow}>
-          {TIP_METHODS.map(m => (
+          {WEEK_DAYS.map(d => (
             <TouchableOpacity
-              key={m.key}
-              style={[styles.chip, tipMethod === m.key && styles.chipActive]}
-              onPress={() => setTipMethod(m.key)}
+              key={d.key}
+              style={[styles.chip, weekStartsOn === d.key && styles.chipActive]}
+              onPress={() => setWeekStartsOn(d.key)}
             >
-              <Text style={[styles.chipText, tipMethod === m.key && styles.chipTextActive]}>
-                {m.label}
+              <Text style={[styles.chipText, weekStartsOn === d.key && styles.chipTextActive]}>
+                {d.label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -510,7 +513,7 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       {/* Version */}
-      <Text style={styles.versionText}>v2026.02.17 — 4:06 PM</Text>
+      <Text style={styles.versionText}>v2026.02.17 — 4:06 PM b2</Text>
 
       <View style={{ height: spacing.xxl }} />
 

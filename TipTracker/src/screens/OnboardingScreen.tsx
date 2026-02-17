@@ -5,7 +5,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
-import { UserProfile, SavingsGoal } from '../types';
+import { UserProfile } from '../types';
 
 // Simple unique ID generator (no crypto dependency)
 const generateId = (): string =>
@@ -14,14 +14,7 @@ const generateId = (): string =>
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ROLES = ['Server', 'Bartender', 'Delivery Driver', 'Barista', 'Expo', 'Food Runner'];
-const TIP_METHODS = [
-  { key: 'cash' as const, label: 'Cash' },
-  { key: 'card' as const, label: 'Card' },
-  { key: 'both' as const, label: 'Both' },
-  { key: 'pooled' as const, label: 'Pooled Tips' },
-];
-
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 
 interface Props {
   onComplete: (profile: Partial<UserProfile>) => void;
@@ -41,9 +34,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
   const [showCustomRole, setShowCustomRole] = useState(false);
   // Step 4: Hourly wage
   const [hourlyWage, setHourlyWage] = useState('');
-  // Step 5: Tip method
-  const [tipMethod, setTipMethod] = useState<UserProfile['tipMethod']>(undefined);
-  // Step 6: Goals
+  // Step 5: Goals
   const [dailyGoal, setDailyGoal] = useState('');
   const [monthlyGoal, setMonthlyGoal] = useState('');
   const [yearlyGoal, setYearlyGoal] = useState('');
@@ -97,7 +88,6 @@ export default function OnboardingScreen({ onComplete }: Props) {
     if (workplace.trim()) profileData.workplace = workplace.trim();
     if (role.trim()) profileData.role = role.trim();
     if (!isNaN(wage) && wage > 0) profileData.hourlyWage = wage;
-    if (tipMethod) profileData.tipMethod = tipMethod;
     if (!isNaN(daily) && daily > 0) profileData.dailyGoal = daily;
     if (!isNaN(monthly) && monthly > 0) profileData.monthlyGoal = monthly;
     if (!isNaN(yearly) && yearly > 0) profileData.yearlyGoal = yearly;
@@ -252,34 +242,6 @@ export default function OnboardingScreen({ onComplete }: Props) {
         );
 
       case 4:
-        return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepEmoji}>💳</Text>
-            <Text style={styles.stepTitle}>How do you receive tips?</Text>
-            <Text style={styles.stepSubtitle}>Select your primary tip method</Text>
-            <View style={styles.tipMethodGrid}>
-              {TIP_METHODS.map(method => (
-                <TouchableOpacity
-                  key={method.key}
-                  style={[
-                    styles.tipMethodBtn,
-                    tipMethod === method.key && styles.tipMethodBtnActive,
-                  ]}
-                  onPress={() => setTipMethod(method.key)}
-                >
-                  <Text style={[
-                    styles.tipMethodText,
-                    tipMethod === method.key && styles.tipMethodTextActive,
-                  ]}>
-                    {method.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        );
-
-      case 5:
         return (
           <ScrollView
             style={styles.goalsScroll}
@@ -551,29 +513,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
     marginLeft: spacing.sm,
-  },
-  tipMethodGrid: {
-    gap: spacing.sm,
-  },
-  tipMethodBtn: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.md + 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tipMethodBtnActive: {
-    backgroundColor: colors.accentDim,
-    borderColor: colors.accent,
-  },
-  tipMethodText: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  tipMethodTextActive: {
-    color: colors.accent,
   },
   goalsScroll: {
     flex: 1,

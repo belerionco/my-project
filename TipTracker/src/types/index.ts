@@ -48,6 +48,7 @@ export interface UserProfile {
   role?: string;
   hourlyWage?: number;
   tipMethod?: 'cash' | 'card' | 'both' | 'pooled';
+  weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sun, 1=Mon, ..., 6=Sat
   dailyGoal?: number;
   monthlyGoal?: number;
   yearlyGoal?: number;
