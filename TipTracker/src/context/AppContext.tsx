@@ -196,7 +196,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const completeOnboarding = useCallback((profileData: Partial<UserProfile>) => {
     const updated: UserProfile = { ...profile, ...profileData, onboardingCompleted: true };
     setProfile(updated);
-    saveData({ entries, goals, profile: updated, daysOff, workplaces });
+
+    // Create a Workplace from onboarding data
+    let newWorkplaces = workplaces;
+    if (profileData.workplace && profileData.workplace.trim()) {
+      const wage = profileData.hourlyWage || 0;
+      const wageRate: WageRate = {
+        id: generateId(),
+        effectiveDate: '2000-01-01',
+        hourlyWage: wage,
+      };
+      const wp: Workplace = {
+        id: generateId(),
+        name: profileData.workplace.trim(),
+        role: profileData.role,
+        wageHistory: [wageRate],
+      };
+      newWorkplaces = [...workplaces, wp];
+      setWorkplaces(newWorkplaces);
+    }
+
+    // Create Goal objects from onboarding goal amounts
+    let newGoals = goals;
+    if (profileData.monthlyGoal && profileData.monthlyGoal > 0) {
+      const monthlyGoalObj: Goal = {
+        id: generateId(),
+        type: 'monthly',
+        amount: profileData.monthlyGoal,
+        createdAt: new Date().toISOString(),
+      };
+      newGoals = [...newGoals.filter(g => g.type !== 'monthly'), monthlyGoalObj];
+    }
+    if (profileData.dailyGoal && profileData.dailyGoal > 0) {
+      // Convert daily goal to weekly (daily × 7)
+      const weeklyGoalObj: Goal = {
+        id: generateId(),
+        type: 'weekly',
+        amount: profileData.dailyGoal * 7,
+        createdAt: new Date().toISOString(),
+      };
+      newGoals = [...newGoals.filter(g => g.type !== 'weekly'), weeklyGoalObj];
+    }
+    if (newGoals !== goals) {
+      setGoals(newGoals);
+    }
+
+    saveData({ entries, goals: newGoals, profile: updated, daysOff, workplaces: newWorkplaces });
   }, [entries, goals, profile, daysOff, workplaces, saveData]);
 
   const resetOnboarding = useCallback(() => {
