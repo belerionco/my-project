@@ -236,15 +236,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.sm,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   goalLabel: {
     fontSize: fontSize.sm,
     fontWeight: '700',
     color: colors.text,
+    flexShrink: 0,
   },
   goalAmount: {
     fontSize: fontSize.sm,
     color: colors.textSecondary,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   progressBar: {
     height: 8,

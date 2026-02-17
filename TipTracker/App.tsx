@@ -14,16 +14,25 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddTipModal from './src/components/AddTipModal';
 import { colors, fontSize, spacing } from './src/utils/theme';
+import { TipEntry } from './src/types';
 
 const Tab = createMaterialTopTabNavigator();
 
 function MainTabs() {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalDate, setModalDate] = useState<string | undefined>();
+  const [editingEntry, setEditingEntry] = useState<TipEntry | undefined>();
 
-  const openModal = (date?: string) => {
+  const openModal = (date?: string, entry?: TipEntry) => {
     setModalDate(date);
+    setEditingEntry(entry);
     setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setModalDate(undefined);
+    setEditingEntry(undefined);
   };
 
   return (
@@ -72,8 +81,9 @@ function MainTabs() {
 
       <AddTipModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={closeModal}
         initialDate={modalDate}
+        editingEntry={editingEntry}
       />
     </>
   );

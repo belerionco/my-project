@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import {
@@ -15,7 +15,7 @@ import {
 import { TipEntry } from '../types';
 
 interface CalendarScreenProps {
-  onAddTip: (date?: string) => void;
+  onAddTip: (date?: string, editEntry?: TipEntry) => void;
 }
 
 export default function CalendarScreen({ onAddTip }: CalendarScreenProps) {
@@ -183,9 +183,32 @@ export default function CalendarScreen({ onAddTip }: CalendarScreenProps) {
                         Cash: ${entry.cashTips} | Card: ${entry.cardTips} | Out: ${entry.tipOut}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={() => deleteEntry(entry.id)} style={styles.deleteBtn}>
-                      <Text style={styles.deleteBtnText}>×</Text>
-                    </TouchableOpacity>
+                    <View style={styles.entryActions}>
+                      <TouchableOpacity onPress={() => onAddTip(undefined, entry)} style={styles.editBtn}>
+                        <Text style={styles.editBtnText}>✎</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (Platform.OS === 'web') {
+                            if (confirm('Are you sure you want to delete this entry?')) {
+                              deleteEntry(entry.id);
+                            }
+                          } else {
+                            Alert.alert(
+                              'Delete Entry',
+                              'Are you sure you want to delete this entry?',
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Delete', style: 'destructive', onPress: () => deleteEntry(entry.id) },
+                              ]
+                            );
+                          }
+                        }}
+                        style={styles.deleteBtn}
+                      >
+                        <Text style={styles.deleteBtnText}>×</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))}
                 <View style={styles.dayTotalRow}>
@@ -394,6 +417,23 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  entryActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  editBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.accentDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtnText: {
+    fontSize: fontSize.md,
+    color: colors.accent,
+    fontWeight: '700',
   },
   deleteBtn: {
     width: 32,

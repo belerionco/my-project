@@ -6,22 +6,42 @@ import {
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import { toDateKey, calculateHoursWorked, formatHoursMinutes, getWageForEntry } from '../utils/helpers';
+import { TipEntry } from '../types';
 
 interface AddTipModalProps {
   visible: boolean;
   onClose: () => void;
   initialDate?: string;
+  editingEntry?: TipEntry;
 }
 
-export default function AddTipModal({ visible, onClose, initialDate }: AddTipModalProps) {
-  const { addEntry, workplaces, profile } = useApp();
+export default function AddTipModal({ visible, onClose, initialDate, editingEntry }: AddTipModalProps) {
+  const { addEntry, updateEntry, workplaces, profile } = useApp();
   const [date, setDate] = useState(initialDate || toDateKey(new Date()));
 
   useEffect(() => {
     if (visible) {
-      setDate(initialDate || toDateKey(new Date()));
+      if (editingEntry) {
+        // Populate form with existing entry data
+        setDate(editingEntry.date);
+        setHoursWorked(editingEntry.hoursWorked.toString());
+        setCashTips(editingEntry.cashTips.toString());
+        setCardTips(editingEntry.cardTips.toString());
+        setTipOut(editingEntry.tipOut.toString());
+        setSelectedWorkplaceId(editingEntry.workplaceId);
+        setNotes(editingEntry.notes || '');
+        if (editingEntry.startTime && editingEntry.endTime) {
+          setUseTimeCalculator(true);
+          setStartTime(editingEntry.startTime);
+          setEndTime(editingEntry.endTime);
+        } else {
+          setUseTimeCalculator(false);
+        }
+      } else {
+        setDate(initialDate || toDateKey(new Date()));
+      }
     }
-  }, [visible, initialDate]);
+  }, [visible, initialDate, editingEntry]);
   const [useTimeCalculator, setUseTimeCalculator] = useState(true);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -79,7 +99,11 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
 
     if (entry.hoursWorked <= 0 && entry.cashTips <= 0 && entry.cardTips <= 0) return;
 
-    addEntry(entry);
+    if (editingEntry) {
+      updateEntry(editingEntry.id, entry);
+    } else {
+      addEntry(entry);
+    }
     resetForm();
     onClose();
   };
@@ -125,7 +149,7 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
               <TouchableOpacity onPress={() => { resetForm(); onClose(); }}>
                 <Text style={styles.cancelBtn}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={styles.title}>Enter Tips</Text>
+              <Text style={styles.title}>{editingEntry ? 'Edit Tips' : 'Enter Tips'}</Text>
               <TouchableOpacity onPress={handleSave}>
                 <Text style={styles.saveBtn}>Save</Text>
               </TouchableOpacity>
