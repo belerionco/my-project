@@ -14,8 +14,9 @@ export interface TipEntry {
 
 export interface Goal {
   id: string;
-  type: 'weekly' | 'monthly';
+  type: 'weekly' | 'monthly' | 'custom';
   amount: number;
+  name?: string; // Only for custom goals
   createdAt: string;
 }
 

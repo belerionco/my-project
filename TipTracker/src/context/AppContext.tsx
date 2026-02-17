@@ -20,6 +20,8 @@ interface AppContextType {
   updateEntry: (id: string, entry: Partial<TipEntry>) => void;
   deleteEntry: (id: string) => void;
   setGoal: (type: 'weekly' | 'monthly', amount: number) => void;
+  addCustomGoal: (name: string, amount: number) => void;
+  deleteGoal: (id: string) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   toggleDayOff: (date: string) => void;
   addWorkplace: (name: string, wage: number, role?: string, overtimeRate?: number) => string;
@@ -103,6 +105,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const filtered = prev.filter(g => g.type !== type);
       const newGoal: Goal = { id: generateId(), type, amount, createdAt: new Date().toISOString() };
       const updated = [...filtered, newGoal];
+      saveData({ entries, goals: updated, profile, daysOff, workplaces });
+      return updated;
+    });
+  }, [entries, profile, daysOff, workplaces, saveData]);
+
+  const addCustomGoal = useCallback((name: string, amount: number) => {
+    setGoals(prev => {
+      const newGoal: Goal = { id: generateId(), type: 'custom', name, amount, createdAt: new Date().toISOString() };
+      const updated = [...prev, newGoal];
+      saveData({ entries, goals: updated, profile, daysOff, workplaces });
+      return updated;
+    });
+  }, [entries, profile, daysOff, workplaces, saveData]);
+
+  const deleteGoal = useCallback((id: string) => {
+    setGoals(prev => {
+      const updated = prev.filter(g => g.id !== id);
       saveData({ entries, goals: updated, profile, daysOff, workplaces });
       return updated;
     });
@@ -253,7 +272,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       entries, goals, profile, daysOff, workplaces,
-      addEntry, updateEntry, deleteEntry, setGoal,
+      addEntry, updateEntry, deleteEntry, setGoal, addCustomGoal, deleteGoal,
       updateProfile, toggleDayOff,
       addWorkplace, updateWorkplace, deleteWorkplace, addWageRate, deleteWageRate,
       bulkImport,

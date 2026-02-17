@@ -14,7 +14,7 @@ import {
 } from '../utils/helpers';
 
 export default function GoalsScreen() {
-  const { goals, setGoal, entries, profile, updateProfile } = useApp();
+  const { goals, setGoal, addCustomGoal, deleteGoal, entries, profile, updateProfile } = useApp();
   const [editingWeekly, setEditingWeekly] = useState(false);
   const [editingMonthly, setEditingMonthly] = useState(false);
   const [weeklyInput, setWeeklyInput] = useState('');
@@ -25,10 +25,14 @@ export default function GoalsScreen() {
   const [savingsPerShift, setSavingsPerShift] = useState('');
   const [editingYearly, setEditingYearly] = useState(false);
   const [yearlyInput, setYearlyInput] = useState('');
+  const [addingCustomGoal, setAddingCustomGoal] = useState(false);
+  const [customGoalName, setCustomGoalName] = useState('');
+  const [customGoalAmount, setCustomGoalAmount] = useState('');
 
   const now = new Date();
   const weeklyGoal = goals.find(g => g.type === 'weekly');
   const monthlyGoal = goals.find(g => g.type === 'monthly');
+  const customGoals = goals.filter(g => g.type === 'custom');
 
   const weekStartsOn = profile.weekStartsOn ?? 0;
   const weekEntries = useMemo(() => getEntriesForWeek(entries, now, weekStartsOn), [entries, weekStartsOn]);
@@ -92,6 +96,16 @@ export default function GoalsScreen() {
     }
   };
 
+  const saveCustomGoal = () => {
+    const amount = parseFloat(customGoalAmount);
+    if (amount > 0 && customGoalName.trim()) {
+      addCustomGoal(customGoalName.trim(), amount);
+      setAddingCustomGoal(false);
+      setCustomGoalName('');
+      setCustomGoalAmount('');
+    }
+  };
+
   const yearlyGoalAmount = profile.yearlyGoal || 0;
   const yearEntries = useMemo(() => entries.filter(e => e.date.startsWith(String(now.getFullYear()))), [entries]);
   const yearTotal = totalEarnings(yearEntries);
@@ -112,7 +126,95 @@ export default function GoalsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Goals</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Goals</Text>
+          <TouchableOpacity
+            style={styles.addGoalBtn}
+            onPress={() => setAddingCustomGoal(!addingCustomGoal)}
+          >
+            <Text style={styles.addGoalBtnText}>+ Add Goal</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Add Custom Goal Form */}
+        {addingCustomGoal && (
+          <View style={styles.addGoalCard}>
+            <View style={styles.savingsInputGroup}>
+              <Text style={styles.savingsInputLabel}>Goal Name</Text>
+              <TextInput
+                style={styles.savingsInput}
+                value={customGoalName}
+                onChangeText={setCustomGoalName}
+                placeholder="e.g. New Car, Emergency Fund"
+                placeholderTextColor={colors.textMuted}
+                autoFocus
+              />
+            </View>
+            <View style={styles.savingsInputGroup}>
+              <Text style={styles.savingsInputLabel}>Target Amount</Text>
+              <View style={styles.inputRow}>
+                <Text style={styles.dollarSign}>$</Text>
+                <TextInput
+                  style={styles.input}
+                  value={customGoalAmount}
+                  onChangeText={setCustomGoalAmount}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <View style={styles.savingsBtnRow}>
+              <TouchableOpacity style={styles.saveBtn} onPress={saveCustomGoal}>
+                <Text style={styles.saveBtnText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setAddingCustomGoal(false);
+                  setCustomGoalName('');
+                  setCustomGoalAmount('');
+                }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Custom Goals */}
+        {customGoals.map(goal => {
+          const totalEarned = totalEarnings(entries);
+          const progress = Math.min(1, totalEarned / goal.amount);
+          return (
+            <View key={goal.id} style={styles.goalCard}>
+              <View style={styles.goalHeader}>
+                <Text style={styles.goalIcon}>🎯</Text>
+                <Text style={styles.goalType}>{goal.name}</Text>
+                <TouchableOpacity onPress={() => deleteGoal(goal.id)}>
+                  <Text style={styles.deleteBtn}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.progressSection}>
+                <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(totalEarned)}</Text>
+                <Text style={styles.progressOf}>of {formatCurrency(goal.amount)}</Text>
+              </View>
+              <View style={styles.progressBarLg}>
+                <View style={[styles.progressFill, { backgroundColor: colors.gold, width: `${progress * 100}%` }]} />
+              </View>
+              <View style={styles.progressMeta}>
+                <Text style={[styles.progressPercent, { color: colors.gold }]}>{Math.round(progress * 100)}%</Text>
+                {totalEarned < goal.amount ? (
+                  <Text style={styles.progressRemaining}>
+                    {formatCurrency(goal.amount - totalEarned)} to go
+                  </Text>
+                ) : (
+                  <Text style={styles.goalReached}>Goal reached!</Text>
+                )}
+              </View>
+            </View>
+          );
+        })}
 
         {/* Weekly Goal */}
         <View style={styles.goalCard}>
@@ -443,11 +545,51 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: spacing.xl,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: spacing.lg,
+  },
+  addGoalBtn: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  addGoalBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+    color: colors.background,
+  },
+  addGoalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  cancelBtn: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  cancelBtnText: {
+    color: colors.textSecondary,
+    fontWeight: '800',
+    fontSize: fontSize.sm,
+  },
+  deleteBtn: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.red,
   },
   goalCard: {
     backgroundColor: colors.surface,
