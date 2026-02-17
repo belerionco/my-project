@@ -14,11 +14,17 @@ import {
 } from '../utils/helpers';
 
 export default function GoalsScreen() {
-  const { goals, setGoal, entries, profile } = useApp();
+  const { goals, setGoal, entries, profile, updateProfile } = useApp();
   const [editingWeekly, setEditingWeekly] = useState(false);
   const [editingMonthly, setEditingMonthly] = useState(false);
   const [weeklyInput, setWeeklyInput] = useState('');
   const [monthlyInput, setMonthlyInput] = useState('');
+  const [editingSavings, setEditingSavings] = useState(false);
+  const [savingsName, setSavingsName] = useState('');
+  const [savingsTarget, setSavingsTarget] = useState('');
+  const [savingsPerShift, setSavingsPerShift] = useState('');
+  const [editingYearly, setEditingYearly] = useState(false);
+  const [yearlyInput, setYearlyInput] = useState('');
 
   const now = new Date();
   const weeklyGoal = goals.find(g => g.type === 'weekly');
@@ -51,6 +57,45 @@ export default function GoalsScreen() {
       setMonthlyInput('');
     }
   };
+
+  const saveSavingsGoal = () => {
+    const target = parseFloat(savingsTarget);
+    const perShift = parseFloat(savingsPerShift);
+    if (target > 0 && perShift > 0 && savingsName.trim()) {
+      updateProfile({
+        savingsGoal: {
+          id: profile.savingsGoal?.id || Date.now().toString(36),
+          name: savingsName.trim(),
+          targetAmount: target,
+          contributionPerShift: perShift,
+          totalContributed: profile.savingsGoal?.totalContributed || 0,
+          createdAt: profile.savingsGoal?.createdAt || new Date().toISOString(),
+        },
+      });
+      setEditingSavings(false);
+      setSavingsName('');
+      setSavingsTarget('');
+      setSavingsPerShift('');
+    }
+  };
+
+  const deleteSavingsGoal = () => {
+    updateProfile({ savingsGoal: undefined });
+  };
+
+  const saveYearlyGoal = () => {
+    const amount = parseFloat(yearlyInput);
+    if (amount > 0) {
+      updateProfile({ yearlyGoal: amount });
+      setEditingYearly(false);
+      setYearlyInput('');
+    }
+  };
+
+  const yearlyGoalAmount = profile.yearlyGoal || 0;
+  const yearEntries = useMemo(() => entries.filter(e => e.date.startsWith(String(now.getFullYear()))), [entries]);
+  const yearTotal = totalEarnings(yearEntries);
+  const yearProgress = yearlyGoalAmount > 0 ? Math.min(1, yearTotal / yearlyGoalAmount) : 0;
 
   // Calculate days/shifts remaining projections
   const daysLeftInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
@@ -101,7 +146,7 @@ export default function GoalsScreen() {
           ) : weeklyGoal ? (
             <>
               <View style={styles.progressSection}>
-                <Text style={styles.progressAmount}>{formatCurrency(weekTotal)}</Text>
+                <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(weekTotal)}</Text>
                 <Text style={styles.progressOf}>of {formatCurrency(weeklyGoal.amount)}</Text>
               </View>
               <View style={styles.progressBarLg}>
@@ -156,7 +201,7 @@ export default function GoalsScreen() {
           ) : monthlyGoal ? (
             <>
               <View style={styles.progressSection}>
-                <Text style={styles.progressAmount}>{formatCurrency(monthTotal)}</Text>
+                <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(monthTotal)}</Text>
                 <Text style={styles.progressOf}>of {formatCurrency(monthlyGoal.amount)}</Text>
               </View>
               <View style={styles.progressBarLg}>
@@ -189,14 +234,76 @@ export default function GoalsScreen() {
         </View>
 
         {/* Custom Savings Goal */}
-        {profile.savingsGoal && (
-          <View style={styles.goalCard}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalIcon}>🐷</Text>
-              <Text style={styles.goalType}>Savings: {profile.savingsGoal.name}</Text>
-            </View>
+        <View style={styles.goalCard}>
+          <View style={styles.goalHeader}>
+            <Text style={styles.goalIcon}>🐷</Text>
+            <Text style={styles.goalType}>{profile.savingsGoal ? `Savings: ${profile.savingsGoal.name}` : 'Savings Goal'}</Text>
+            <TouchableOpacity onPress={() => {
+              setEditingSavings(!editingSavings);
+              if (profile.savingsGoal) {
+                setSavingsName(profile.savingsGoal.name);
+                setSavingsTarget(String(profile.savingsGoal.targetAmount));
+                setSavingsPerShift(String(profile.savingsGoal.contributionPerShift));
+              }
+            }}>
+              <Text style={styles.editBtn}>{profile.savingsGoal ? 'Edit' : 'Set'}</Text>
+            </TouchableOpacity>
+          </View>
 
-            {(() => {
+          {editingSavings ? (
+            <View>
+              <View style={styles.savingsInputGroup}>
+                <Text style={styles.savingsInputLabel}>Goal Name</Text>
+                <TextInput
+                  style={styles.savingsInput}
+                  value={savingsName}
+                  onChangeText={setSavingsName}
+                  placeholder="e.g. Vacation Fund"
+                  placeholderTextColor={colors.textMuted}
+                  autoFocus
+                />
+              </View>
+              <View style={styles.savingsInputGroup}>
+                <Text style={styles.savingsInputLabel}>Target Amount</Text>
+                <View style={styles.inputRow}>
+                  <Text style={styles.dollarSign}>$</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={savingsTarget}
+                    onChangeText={setSavingsTarget}
+                    placeholder="0.00"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+              <View style={styles.savingsInputGroup}>
+                <Text style={styles.savingsInputLabel}>Per Shift Contribution</Text>
+                <View style={styles.inputRow}>
+                  <Text style={styles.dollarSign}>$</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={savingsPerShift}
+                    onChangeText={setSavingsPerShift}
+                    placeholder="0.00"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+              <View style={styles.savingsBtnRow}>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveSavingsGoal}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+                {profile.savingsGoal && (
+                  <TouchableOpacity style={styles.deleteGoalBtn} onPress={deleteSavingsGoal}>
+                    <Text style={styles.deleteGoalBtnText}>Remove</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : profile.savingsGoal ? (
+            (() => {
               const sg = profile.savingsGoal!;
               const contributed = sg.contributionPerShift * entries.length;
               const progress = Math.min(1, contributed / sg.targetAmount);
@@ -207,7 +314,7 @@ export default function GoalsScreen() {
               return (
                 <>
                   <View style={styles.progressSection}>
-                    <Text style={styles.progressAmount}>{formatCurrency(contributed)}</Text>
+                    <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(contributed)}</Text>
                     <Text style={styles.progressOf}>of {formatCurrency(sg.targetAmount)}</Text>
                   </View>
                   <View style={styles.progressBarLg}>
@@ -242,24 +349,80 @@ export default function GoalsScreen() {
                   </View>
                 </>
               );
-            })()}
+            })()
+          ) : (
+            <Text style={styles.noGoal}>Tap "Set" to create a savings goal</Text>
+          )}
+        </View>
+
+        {/* Yearly Goal */}
+        <View style={styles.goalCard}>
+          <View style={styles.goalHeader}>
+            <Text style={styles.goalIcon}>📅</Text>
+            <Text style={styles.goalType}>Yearly Goal</Text>
+            <TouchableOpacity onPress={() => {
+              setEditingYearly(!editingYearly);
+              if (yearlyGoalAmount > 0) setYearlyInput(String(yearlyGoalAmount));
+            }}>
+              <Text style={styles.editBtn}>{yearlyGoalAmount > 0 ? 'Edit' : 'Set'}</Text>
+            </TouchableOpacity>
           </View>
-        )}
+
+          {editingYearly ? (
+            <View style={styles.inputRow}>
+              <Text style={styles.dollarSign}>$</Text>
+              <TextInput
+                style={styles.input}
+                value={yearlyInput}
+                onChangeText={setYearlyInput}
+                placeholder="0.00"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+              <TouchableOpacity style={styles.saveBtn} onPress={saveYearlyGoal}>
+                <Text style={styles.saveBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          ) : yearlyGoalAmount > 0 ? (
+            <>
+              <View style={styles.progressSection}>
+                <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(yearTotal)}</Text>
+                <Text style={styles.progressOf}>of {formatCurrency(yearlyGoalAmount)}</Text>
+              </View>
+              <View style={styles.progressBarLg}>
+                <View style={[styles.progressFill, { backgroundColor: colors.success, width: `${yearProgress * 100}%` }]} />
+              </View>
+              <View style={styles.progressMeta}>
+                <Text style={[styles.progressPercent, { color: colors.success }]}>{Math.round(yearProgress * 100)}%</Text>
+                {yearTotal < yearlyGoalAmount ? (
+                  <Text style={styles.progressRemaining}>
+                    {formatCurrency(yearlyGoalAmount - yearTotal)} to go
+                  </Text>
+                ) : (
+                  <Text style={styles.goalReached}>Goal reached!</Text>
+                )}
+              </View>
+            </>
+          ) : (
+            <Text style={styles.noGoal}>Tap "Set" to create a yearly earnings goal</Text>
+          )}
+        </View>
 
         {/* Quick Stats */}
         <View style={styles.quickStats}>
           <Text style={styles.quickStatsTitle}>{MONTH_NAMES[now.getMonth()]} Summary</Text>
           <View style={styles.quickStatsRow}>
             <View style={styles.quickStat}>
-              <Text style={styles.quickStatValue}>{monthEntries.length}</Text>
+              <Text style={styles.quickStatValue} adjustsFontSizeToFit numberOfLines={1}>{monthEntries.length}</Text>
               <Text style={styles.quickStatLabel}>Shifts</Text>
             </View>
             <View style={styles.quickStat}>
-              <Text style={styles.quickStatValue}>{formatCurrency(monthTotal)}</Text>
+              <Text style={styles.quickStatValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(monthTotal)}</Text>
               <Text style={styles.quickStatLabel}>Earned</Text>
             </View>
             <View style={styles.quickStat}>
-              <Text style={styles.quickStatValue}>{formatCurrency(avgPerShift)}</Text>
+              <Text style={styles.quickStatValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(avgPerShift)}</Text>
               <Text style={styles.quickStatLabel}>Per Shift</Text>
             </View>
           </View>
@@ -439,6 +602,40 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: '700',
     color: colors.text,
+  },
+  savingsInputGroup: {
+    marginBottom: spacing.md,
+  },
+  savingsInputLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  savingsInput: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.text,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accent,
+    paddingVertical: spacing.sm,
+  },
+  savingsBtnRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  deleteGoalBtn: {
+    backgroundColor: colors.redDim,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  deleteGoalBtnText: {
+    color: colors.red,
+    fontWeight: '800',
+    fontSize: fontSize.sm,
   },
   quickStats: {
     backgroundColor: colors.surface,

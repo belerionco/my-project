@@ -122,19 +122,19 @@ export default function StatsScreen() {
         {/* Overview Stats */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{formatCurrency(total)}</Text>
+            <Text style={styles.statValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(total)}</Text>
             <Text style={styles.statLabel}>Total Earned</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{filteredEntries.length}</Text>
+            <Text style={styles.statValue} adjustsFontSizeToFit numberOfLines={1}>{filteredEntries.length}</Text>
             <Text style={styles.statLabel}>Shifts</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{formatCurrency(avgHourly)}</Text>
+            <Text style={styles.statValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(avgHourly)}</Text>
             <Text style={styles.statLabel}>Avg $/hr</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{formatCurrency(avgShift)}</Text>
+            <Text style={styles.statValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(avgShift)}</Text>
             <Text style={styles.statLabel}>Avg/Shift</Text>
           </View>
         </View>
@@ -222,7 +222,7 @@ export default function StatsScreen() {
             <Text style={styles.bestDayDate}>
               {new Date(bestDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </Text>
-            <Text style={styles.bestDayAmount}>{formatCurrency(bestDay.amount)}</Text>
+            <Text style={styles.bestDayAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(bestDay.amount)}</Text>
           </View>
         )}
 

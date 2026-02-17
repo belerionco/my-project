@@ -52,17 +52,17 @@ export default function DashboardScreen({ onAddTip }: DashboardScreenProps) {
         <View style={styles.avgRow}>
           <View style={styles.avgCard}>
             <Text style={styles.avgLabel}>Avg Hourly</Text>
-            <Text style={styles.avgValue}>{formatCurrency(avgHourly)}</Text>
+            <Text style={styles.avgValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(avgHourly)}</Text>
             <Text style={styles.avgSub}>/hr</Text>
           </View>
           <View style={styles.avgCard}>
             <Text style={styles.avgLabel}>Avg Tips</Text>
-            <Text style={styles.avgValue}>{formatCurrency(avgTips)}</Text>
+            <Text style={styles.avgValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(avgTips)}</Text>
             <Text style={styles.avgSub}>/shift</Text>
           </View>
           <View style={styles.avgCard}>
             <Text style={styles.avgLabel}>Combined</Text>
-            <Text style={styles.avgValue}>{formatCurrency(combinedAvg)}</Text>
+            <Text style={styles.avgValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(combinedAvg)}</Text>
             <Text style={styles.avgSub}>/hr</Text>
           </View>
         </View>
@@ -72,13 +72,13 @@ export default function DashboardScreen({ onAddTip }: DashboardScreenProps) {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>This Week</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(weekTotal)}</Text>
+              <Text style={styles.summaryValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(weekTotal)}</Text>
               <Text style={styles.summaryShifts}>{weekEntries.length} shifts</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>This Month</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(monthTotal)}</Text>
+              <Text style={styles.summaryValue} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(monthTotal)}</Text>
               <Text style={styles.summaryShifts}>{monthEntries.length} shifts</Text>
             </View>
           </View>
@@ -89,7 +89,7 @@ export default function DashboardScreen({ onAddTip }: DashboardScreenProps) {
           <View style={styles.goalCard}>
             <View style={styles.goalHeader}>
               <Text style={styles.goalLabel}>Weekly Goal</Text>
-              <Text style={styles.goalAmount}>{formatCurrency(weekTotal)} / {formatCurrency(weeklyGoal.amount)}</Text>
+              <Text style={styles.goalAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(weekTotal)} / {formatCurrency(weeklyGoal.amount)}</Text>
             </View>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${weekGoalProgress * 100}%` }]} />
@@ -105,7 +105,7 @@ export default function DashboardScreen({ onAddTip }: DashboardScreenProps) {
           <View style={styles.goalCard}>
             <View style={styles.goalHeader}>
               <Text style={styles.goalLabel}>Monthly Goal</Text>
-              <Text style={styles.goalAmount}>{formatCurrency(monthTotal)} / {formatCurrency(monthlyGoal.amount)}</Text>
+              <Text style={styles.goalAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(monthTotal)} / {formatCurrency(monthlyGoal.amount)}</Text>
             </View>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, styles.progressFillGold, { width: `${monthGoalProgress * 100}%` }]} />
@@ -178,10 +178,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   avgValue: {
-    fontSize: fontSize.lg,
+    fontSize: fontSize.md,
     fontWeight: '800',
     color: colors.text,
     marginTop: spacing.xs,
+    textAlign: 'center',
   },
   avgSub: {
     fontSize: fontSize.xs,
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   summaryValue: {
-    fontSize: fontSize.xxl,
+    fontSize: fontSize.xl,
     fontWeight: '800',
     color: colors.text,
     marginTop: spacing.xs,
