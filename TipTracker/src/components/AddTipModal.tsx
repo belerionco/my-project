@@ -5,8 +5,7 @@ import {
 } from 'react-native';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
-import { ShiftType } from '../types';
-import { toDateKey, calculateHoursWorked, formatHoursMinutes } from '../utils/helpers';
+import { toDateKey, calculateHoursWorked, formatHoursMinutes, getWageForEntry } from '../utils/helpers';
 
 interface AddTipModalProps {
   visible: boolean;
@@ -14,15 +13,8 @@ interface AddTipModalProps {
   initialDate?: string;
 }
 
-const SHIFT_TYPES: { value: ShiftType; label: string }[] = [
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'dinner', label: 'Dinner' },
-  { value: 'double', label: 'Double' },
-  { value: 'other', label: 'Other' },
-];
-
 export default function AddTipModal({ visible, onClose, initialDate }: AddTipModalProps) {
-  const { addEntry } = useApp();
+  const { addEntry, workplaces, profile } = useApp();
   const [date, setDate] = useState(initialDate || toDateKey(new Date()));
 
   useEffect(() => {
@@ -37,8 +29,15 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
   const [cashTips, setCashTips] = useState('');
   const [cardTips, setCardTips] = useState('');
   const [tipOut, setTipOut] = useState('');
-  const [shiftType, setShiftType] = useState<ShiftType>('dinner');
+  const [selectedWorkplaceId, setSelectedWorkplaceId] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState('');
+
+  // Auto-select if only one workplace
+  useEffect(() => {
+    if (workplaces.length === 1) {
+      setSelectedWorkplaceId(workplaces[0].id);
+    }
+  }, [workplaces]);
 
   const resetForm = () => {
     setDate(initialDate || toDateKey(new Date()));
@@ -49,7 +48,7 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
     setCashTips('');
     setCardTips('');
     setTipOut('');
-    setShiftType('dinner');
+    setSelectedWorkplaceId(workplaces.length === 1 ? workplaces[0].id : undefined);
     setNotes('');
   };
 
@@ -73,8 +72,9 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
       cashTips: parseFloat(cashTips) || 0,
       cardTips: parseFloat(cardTips) || 0,
       tipOut: parseFloat(tipOut) || 0,
-      shiftType,
+      shiftType: 'other' as const,
       notes: notes.trim() || undefined,
+      workplaceId: selectedWorkplaceId,
     };
 
     if (entry.hoursWorked <= 0 && entry.cashTips <= 0 && entry.cardTips <= 0) return;
@@ -90,6 +90,14 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
   const calculatedHours = useTimeCalculator && startTime && endTime
     ? calculateHoursWorked(startTime, endTime) || 0
     : parseFloat(hoursWorked) || 0;
+
+  // Calculate wage earnings
+  const selectedWorkplace = workplaces.find(w => w.id === selectedWorkplaceId);
+  const hourlyWage = selectedWorkplace
+    ? getWageForEntry({ date, workplaceId: selectedWorkplaceId, hoursWorked: calculatedHours, cashTips: 0, cardTips: 0, tipOut: 0, shiftType: 'other', id: '' }, workplaces, profile.hourlyWage || 0)
+    : (profile.hourlyWage || 0);
+  const wageEarnings = calculatedHours * hourlyWage;
+  const grandTotal = totalNet + wageEarnings;
 
   // Date navigation
   const changeDate = (offset: number) => {
@@ -134,21 +142,25 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
               </TouchableOpacity>
             </View>
 
-            {/* Shift Type */}
-            <Text style={styles.label}>Shift Type</Text>
-            <View style={styles.shiftRow}>
-              {SHIFT_TYPES.map(s => (
-                <TouchableOpacity
-                  key={s.value}
-                  style={[styles.shiftBtn, shiftType === s.value && styles.shiftBtnActive]}
-                  onPress={() => setShiftType(s.value)}
-                >
-                  <Text style={[styles.shiftBtnText, shiftType === s.value && styles.shiftBtnTextActive]}>
-                    {s.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* Workplace Selector */}
+            {workplaces.length > 0 && (
+              <>
+                <Text style={styles.label}>Job</Text>
+                <View style={styles.shiftRow}>
+                  {workplaces.map(wp => (
+                    <TouchableOpacity
+                      key={wp.id}
+                      style={[styles.shiftBtn, selectedWorkplaceId === wp.id && styles.shiftBtnActive]}
+                      onPress={() => setSelectedWorkplaceId(wp.id)}
+                    >
+                      <Text style={[styles.shiftBtnText, selectedWorkplaceId === wp.id && styles.shiftBtnTextActive]}>
+                        {wp.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             {/* Hours - Toggle between time calculator and manual */}
             <View style={styles.hoursHeader}>
@@ -253,6 +265,19 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
               />
             </View>
 
+            {/* Wage Earnings (auto-calculated) */}
+            {calculatedHours > 0 && hourlyWage > 0 && (
+              <>
+                <Text style={styles.label}>Wage Earned</Text>
+                <View style={styles.wageRow}>
+                  <Text style={styles.wageDetail}>
+                    {calculatedHours.toFixed(2)} hrs × ${hourlyWage.toFixed(2)}/hr
+                  </Text>
+                  <Text style={styles.wageValue}>${wageEarnings.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
+
             {/* Notes */}
             <Text style={styles.label}>Notes (optional)</Text>
             <TextInput
@@ -264,12 +289,25 @@ export default function AddTipModal({ visible, onClose, initialDate }: AddTipMod
               multiline
             />
 
-            {/* Total Preview */}
-            <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>Net Tips</Text>
-              <Text style={[styles.totalValue, totalNet < 0 && { color: colors.red }]}>
-                ${totalNet.toFixed(2)}
-              </Text>
+            {/* Totals */}
+            <View style={styles.totalsCard}>
+              <View style={styles.totalsRow}>
+                <Text style={styles.netLabel}>Net Tips</Text>
+                <Text style={[styles.netValue, totalNet < 0 && { color: colors.red }]}>
+                  ${totalNet.toFixed(2)}
+                </Text>
+              </View>
+              {calculatedHours > 0 && hourlyWage > 0 && (
+                <>
+                  <View style={styles.totalsDivider} />
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.grandTotalLabel}>Total Earned</Text>
+                    <Text style={[styles.grandTotalValue, grandTotal < 0 && { color: colors.red }]}>
+                      ${grandTotal.toFixed(2)}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
 
           </ScrollView>
@@ -405,22 +443,58 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 60,
   },
-  totalCard: {
+  wageRow: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  totalLabel: {
+  wageDetail: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  wageValue: {
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: colors.gold,
+  },
+  totalsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  totalsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  netLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
-  totalValue: {
+  netValue: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  totalsDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  grandTotalLabel: {
+    fontSize: fontSize.md,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  grandTotalValue: {
     fontSize: fontSize.xxl,
     fontWeight: '800',
     color: colors.accent,
