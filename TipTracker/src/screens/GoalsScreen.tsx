@@ -14,7 +14,7 @@ import {
 } from '../utils/helpers';
 
 export default function GoalsScreen() {
-  const { goals, setGoal, addCustomGoal, deleteGoal, entries, profile, updateProfile } = useApp();
+  const { goals, setGoal, addCustomGoal, updateCustomGoal, deleteGoal, entries, profile, updateProfile } = useApp();
   const [editingWeekly, setEditingWeekly] = useState(false);
   const [editingMonthly, setEditingMonthly] = useState(false);
   const [weeklyInput, setWeeklyInput] = useState('');
@@ -29,6 +29,10 @@ export default function GoalsScreen() {
   const [customGoalName, setCustomGoalName] = useState('');
   const [customGoalAmount, setCustomGoalAmount] = useState('');
   const [customGoalContribution, setCustomGoalContribution] = useState('');
+  const [editingCustomGoalId, setEditingCustomGoalId] = useState<string | null>(null);
+  const [editCustomName, setEditCustomName] = useState('');
+  const [editCustomAmount, setEditCustomAmount] = useState('');
+  const [editCustomContribution, setEditCustomContribution] = useState('');
 
   const now = new Date();
   const weeklyGoal = goals.find(g => g.type === 'weekly');
@@ -106,6 +110,19 @@ export default function GoalsScreen() {
       setCustomGoalName('');
       setCustomGoalAmount('');
       setCustomGoalContribution('');
+    }
+  };
+
+  const saveEditCustomGoal = () => {
+    if (!editingCustomGoalId) return;
+    const amount = parseFloat(editCustomAmount);
+    const contribution = parseFloat(editCustomContribution);
+    if (amount > 0 && contribution > 0 && editCustomName.trim()) {
+      updateCustomGoal(editingCustomGoalId, editCustomName.trim(), amount, contribution);
+      setEditingCustomGoalId(null);
+      setEditCustomName('');
+      setEditCustomAmount('');
+      setEditCustomContribution('');
     }
   };
 
@@ -502,52 +519,120 @@ export default function GoalsScreen() {
           const contributed = (goal.contributionPerShift || 0) * entriesSinceGoal.length;
           const progress = Math.min(1, contributed / goal.amount);
           const remaining = Math.max(0, goal.amount - contributed);
+          const isEditing = editingCustomGoalId === goal.id;
           return (
             <View key={goal.id} style={styles.goalCard}>
               <View style={styles.goalHeader}>
                 <Text style={styles.goalIcon}>💰</Text>
                 <Text style={styles.goalType}>{goal.name}</Text>
-                <TouchableOpacity onPress={() => deleteGoal(goal.id)}>
-                  <Text style={styles.deleteBtn}>Delete</Text>
+                <TouchableOpacity onPress={() => {
+                  if (isEditing) {
+                    setEditingCustomGoalId(null);
+                  } else {
+                    setEditingCustomGoalId(goal.id);
+                    setEditCustomName(goal.name || '');
+                    setEditCustomAmount(String(goal.amount));
+                    setEditCustomContribution(String(goal.contributionPerShift || ''));
+                  }
+                }}>
+                  <Text style={styles.editBtn}>{isEditing ? 'Cancel' : 'Edit'}</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.progressSection}>
-                <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(contributed)}</Text>
-                <Text style={styles.progressOf}>of {formatCurrency(goal.amount)}</Text>
-              </View>
-              <View style={styles.progressBarLg}>
-                <View style={[styles.progressFill, { backgroundColor: colors.gold, width: `${progress * 100}%` }]} />
-              </View>
-              <View style={styles.progressMeta}>
-                <Text style={[styles.progressPercent, { color: colors.gold }]}>{Math.round(progress * 100)}%</Text>
-                {contributed < goal.amount ? (
-                  <Text style={styles.progressRemaining}>
-                    {formatCurrency(remaining)} to go
-                  </Text>
-                ) : (
-                  <Text style={styles.goalReached}>Goal reached!</Text>
-                )}
-              </View>
-              <View style={styles.savingsDetails}>
-                <View style={styles.savingsDetailRow}>
-                  <Text style={styles.savingsDetailLabel}>Per shift contribution</Text>
-                  <Text style={styles.savingsDetailValue}>{formatCurrency(goal.contributionPerShift || 0)}</Text>
-                </View>
-                <View style={styles.savingsDetailRow}>
-                  <Text style={styles.savingsDetailLabel}>Tracking since</Text>
-                  <Text style={styles.savingsDetailValue}>{new Date(goal.createdAt).toLocaleDateString()}</Text>
-                </View>
-                <View style={styles.savingsDetailRow}>
-                  <Text style={styles.savingsDetailLabel}>Shifts counted</Text>
-                  <Text style={styles.savingsDetailValue}>{entriesSinceGoal.length}</Text>
-                </View>
-                {remaining > 0 && (goal.contributionPerShift || 0) > 0 && (
-                  <View style={styles.savingsDetailRow}>
-                    <Text style={styles.savingsDetailLabel}>Shifts remaining</Text>
-                    <Text style={styles.savingsDetailValue}>~{Math.ceil(remaining / (goal.contributionPerShift || 1))}</Text>
+
+              {isEditing ? (
+                <View>
+                  <View style={styles.savingsInputGroup}>
+                    <Text style={styles.savingsInputLabel}>Goal Name</Text>
+                    <TextInput
+                      style={styles.savingsInput}
+                      value={editCustomName}
+                      onChangeText={setEditCustomName}
+                      placeholder="Goal name"
+                      placeholderTextColor={colors.textMuted}
+                      autoFocus
+                    />
                   </View>
-                )}
-              </View>
+                  <View style={styles.savingsInputGroup}>
+                    <Text style={styles.savingsInputLabel}>Target Amount</Text>
+                    <View style={styles.inputRow}>
+                      <Text style={styles.dollarSign}>$</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editCustomAmount}
+                        onChangeText={setEditCustomAmount}
+                        placeholder="0.00"
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.savingsInputGroup}>
+                    <Text style={styles.savingsInputLabel}>Save Per Shift</Text>
+                    <View style={styles.inputRow}>
+                      <Text style={styles.dollarSign}>$</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editCustomContribution}
+                        onChangeText={setEditCustomContribution}
+                        placeholder="0.00"
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.savingsBtnRow}>
+                    <TouchableOpacity style={styles.saveBtn} onPress={saveEditCustomGoal}>
+                      <Text style={styles.saveBtnText}>Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteGoalBtn} onPress={() => {
+                      deleteGoal(goal.id);
+                      setEditingCustomGoalId(null);
+                    }}>
+                      <Text style={styles.deleteGoalBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.progressSection}>
+                    <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(contributed)}</Text>
+                    <Text style={styles.progressOf}>of {formatCurrency(goal.amount)}</Text>
+                  </View>
+                  <View style={styles.progressBarLg}>
+                    <View style={[styles.progressFill, { backgroundColor: colors.gold, width: `${progress * 100}%` }]} />
+                  </View>
+                  <View style={styles.progressMeta}>
+                    <Text style={[styles.progressPercent, { color: colors.gold }]}>{Math.round(progress * 100)}%</Text>
+                    {contributed < goal.amount ? (
+                      <Text style={styles.progressRemaining}>
+                        {formatCurrency(remaining)} to go
+                      </Text>
+                    ) : (
+                      <Text style={styles.goalReached}>Goal reached!</Text>
+                    )}
+                  </View>
+                  <View style={styles.savingsDetails}>
+                    <View style={styles.savingsDetailRow}>
+                      <Text style={styles.savingsDetailLabel}>Per shift contribution</Text>
+                      <Text style={styles.savingsDetailValue}>{formatCurrency(goal.contributionPerShift || 0)}</Text>
+                    </View>
+                    <View style={styles.savingsDetailRow}>
+                      <Text style={styles.savingsDetailLabel}>Tracking since</Text>
+                      <Text style={styles.savingsDetailValue}>{new Date(goal.createdAt).toLocaleDateString()}</Text>
+                    </View>
+                    <View style={styles.savingsDetailRow}>
+                      <Text style={styles.savingsDetailLabel}>Shifts counted</Text>
+                      <Text style={styles.savingsDetailValue}>{entriesSinceGoal.length}</Text>
+                    </View>
+                    {remaining > 0 && (goal.contributionPerShift || 0) > 0 && (
+                      <View style={styles.savingsDetailRow}>
+                        <Text style={styles.savingsDetailLabel}>Shifts remaining</Text>
+                        <Text style={styles.savingsDetailValue}>~{Math.ceil(remaining / (goal.contributionPerShift || 1))}</Text>
+                      </View>
+                    )}
+                  </View>
+                </>
+              )}
             </View>
           );
         })}

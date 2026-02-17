@@ -21,6 +21,7 @@ interface AppContextType {
   deleteEntry: (id: string) => void;
   setGoal: (type: 'weekly' | 'monthly', amount: number) => void;
   addCustomGoal: (name: string, amount: number, contributionPerShift: number) => void;
+  updateCustomGoal: (id: string, name: string, amount: number, contributionPerShift: number) => void;
   deleteGoal: (id: string) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   toggleDayOff: (date: string) => void;
@@ -122,6 +123,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
       };
       const updated = [...prev, newGoal];
+      saveData({ entries, goals: updated, profile, daysOff, workplaces });
+      return updated;
+    });
+  }, [entries, profile, daysOff, workplaces, saveData]);
+
+  const updateCustomGoal = useCallback((id: string, name: string, amount: number, contributionPerShift: number) => {
+    setGoals(prev => {
+      const updated = prev.map(g => g.id === id ? { ...g, name, amount, contributionPerShift } : g);
       saveData({ entries, goals: updated, profile, daysOff, workplaces });
       return updated;
     });
@@ -280,7 +289,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       entries, goals, profile, daysOff, workplaces,
-      addEntry, updateEntry, deleteEntry, setGoal, addCustomGoal, deleteGoal,
+      addEntry, updateEntry, deleteEntry, setGoal, addCustomGoal, updateCustomGoal, deleteGoal,
       updateProfile, toggleDayOff,
       addWorkplace, updateWorkplace, deleteWorkplace, addWageRate, deleteWageRate,
       bulkImport,
