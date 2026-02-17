@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
+import ConfettiOverlay from '../components/ConfettiOverlay';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import {
@@ -67,7 +67,6 @@ export default function GoalsScreen() {
 
   // Confetti celebration
   const [showConfetti, setShowConfetti] = useState(false);
-  const confettiRef = useRef<any>(null);
   const prevGoalsMet = useRef<Set<string>>(new Set());
   const hasInitialized = useRef(false);
 
@@ -95,7 +94,6 @@ export default function GoalsScreen() {
 
   const fireConfetti = useCallback(() => {
     setShowConfetti(true);
-    confettiRef.current?.start();
   }, []);
 
   useEffect(() => {
@@ -756,19 +754,7 @@ export default function GoalsScreen() {
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
     </KeyboardAvoidingView>
-    {showConfetti && (
-      <ConfettiCannon
-        ref={confettiRef}
-        count={200}
-        origin={{ x: -10, y: 0 }}
-        autoStart
-        fadeOut
-        fallSpeed={3000}
-        explosionSpeed={350}
-        onAnimationEnd={() => setShowConfetti(false)}
-        colors={[colors.accent, colors.gold, colors.success, '#FF6B6B', '#4ECDC4', '#FFE66D']}
-      />
-    )}
+    <ConfettiOverlay visible={showConfetti} onComplete={() => setShowConfetti(false)} />
     </>
   );
 }
