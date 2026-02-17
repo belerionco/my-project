@@ -497,7 +497,9 @@ export default function GoalsScreen() {
 
         {/* Custom Goals */}
         {customGoals.map(goal => {
-          const contributed = (goal.contributionPerShift || 0) * entries.length;
+          const goalStartDate = goal.createdAt.slice(0, 10); // YYYY-MM-DD
+          const entriesSinceGoal = entries.filter(e => e.date >= goalStartDate);
+          const contributed = (goal.contributionPerShift || 0) * entriesSinceGoal.length;
           const progress = Math.min(1, contributed / goal.amount);
           const remaining = Math.max(0, goal.amount - contributed);
           return (
@@ -530,6 +532,14 @@ export default function GoalsScreen() {
                 <View style={styles.savingsDetailRow}>
                   <Text style={styles.savingsDetailLabel}>Per shift contribution</Text>
                   <Text style={styles.savingsDetailValue}>{formatCurrency(goal.contributionPerShift || 0)}</Text>
+                </View>
+                <View style={styles.savingsDetailRow}>
+                  <Text style={styles.savingsDetailLabel}>Tracking since</Text>
+                  <Text style={styles.savingsDetailValue}>{new Date(goal.createdAt).toLocaleDateString()}</Text>
+                </View>
+                <View style={styles.savingsDetailRow}>
+                  <Text style={styles.savingsDetailLabel}>Shifts counted</Text>
+                  <Text style={styles.savingsDetailValue}>{entriesSinceGoal.length}</Text>
                 </View>
                 {remaining > 0 && (goal.contributionPerShift || 0) > 0 && (
                   <View style={styles.savingsDetailRow}>
