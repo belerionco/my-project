@@ -30,6 +30,12 @@ interface ParsedRow {
   notes: string;
 }
 
+interface ParseResult {
+  rows: ParsedRow[];
+  headers: string[];
+  mappedColumns: Record<string, number>;
+}
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
@@ -109,13 +115,68 @@ function findColumn(headers: string[], ...candidates: string[]): number {
   return -1;
 }
 
-function parseCSV(text: string): ParsedRow[] {
+const DATE_RE = /^(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}|\d{4}[/\-]\d{1,2}[/\-]\d{1,2})$/;
+
+function looksLikeDate(v: string): boolean {
+  return DATE_RE.test(v.trim());
+}
+
+function detectDateColumn(dataLines: string[][]): number {
+  if (dataLines.length === 0) return -1;
+  const numCols = Math.max(...dataLines.map(r => r.length));
+  let bestCol = -1;
+  let bestCount = 0;
+  for (let col = 0; col < numCols; col++) {
+    let count = 0;
+    for (const row of dataLines.slice(0, 10)) {
+      if (row[col] && looksLikeDate(row[col])) count++;
+    }
+    if (count > bestCount) {
+      bestCount = count;
+      bestCol = col;
+    }
+  }
+  return bestCount > 0 ? bestCol : -1;
+}
+
+function detectMoneyColumns(headers: string[], dataLines: string[][], exclude: Set<number>): number[] {
+  const numCols = Math.max(...dataLines.map(r => r.length), headers.length);
+  const moneyCols: number[] = [];
+  for (let col = 0; col < numCols; col++) {
+    if (exclude.has(col)) continue;
+    let numericCount = 0;
+    for (const row of dataLines.slice(0, 10)) {
+      const v = (row[col] || '').replace(/[$€£,\s]/g, '');
+      if (v && !isNaN(parseFloat(v))) numericCount++;
+    }
+    if (numericCount > dataLines.slice(0, 10).length * 0.5) {
+      moneyCols.push(col);
+    }
+  }
+  return moneyCols;
+}
+
+function parseCSV(text: string): ParseResult {
+  const empty: ParseResult = { rows: [], headers: [], mappedColumns: {} };
   const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return [];
+  if (lines.length < 2) return empty;
 
-  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+  const rawHeaders = parseCSVLine(lines[0]);
+  const headers = rawHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
-  const dateIdx = findColumn(headers, 'date', 'day', 'workdate', 'shiftdate');
+  // Parse all data rows first
+  const dataLines: string[][] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVLine(lines[i]);
+    if (vals.some(v => v.trim())) dataLines.push(vals);
+  }
+  if (dataLines.length === 0) return empty;
+
+  // Try header-based matching first, then fall back to data detection
+  let dateIdx = findColumn(headers, 'date', 'day', 'workdate', 'shiftdate');
+  if (dateIdx === -1) dateIdx = detectDateColumn(dataLines);
+  if (dateIdx === -1) return { rows: [], headers: rawHeaders, mappedColumns: {} };
+
   const dayOffIdx = findColumn(headers, 'dayoff', 'off', 'isoff', 'isdayoff');
   const hoursIdx = findColumn(headers, 'hoursworked', 'hours', 'hrs', 'totalhours', 'workhours', 'duration');
   const amountIdx = findColumn(headers, 'amount', 'total', 'totaltips', 'tips', 'totalearnings', 'earnings', 'tipamount');
@@ -129,33 +190,53 @@ function parseCSV(text: string): ParsedRow[] {
   const shiftIdx = findColumn(headers, 'shift', 'shifttype', 'shiftname', 'period');
   const noteIdx = findColumn(headers, 'note', 'notes', 'comments', 'comment', 'memo', 'description');
 
-  if (dateIdx === -1) return []; // No date column found
+  // If we couldn't find any money columns by name, auto-detect numeric columns
+  // and use the first one as the amount
+  let effectiveAmountIdx = amountIdx;
+  if (amountIdx === -1 && cashIdx === -1 && creditIdx === -1) {
+    const knownCols = new Set([dateIdx, dayOffIdx, hoursIdx, jobIdx, startIdx, endIdx, shiftIdx, noteIdx].filter(i => i !== -1));
+    const moneyCols = detectMoneyColumns(headers, dataLines, knownCols);
+    // If hours wasn't found either, first numeric col could be hours, second amount
+    if (hoursIdx === -1 && moneyCols.length >= 1) {
+      effectiveAmountIdx = moneyCols[0];
+    } else if (moneyCols.length >= 1) {
+      effectiveAmountIdx = moneyCols[0];
+    }
+  }
+
+  const mapped: Record<string, number> = {};
+  if (dateIdx !== -1) mapped[rawHeaders[dateIdx] || `col${dateIdx}`] = dateIdx;
+  if (effectiveAmountIdx !== -1) mapped[rawHeaders[effectiveAmountIdx] || `col${effectiveAmountIdx}`] = effectiveAmountIdx;
+  if (cashIdx !== -1) mapped[rawHeaders[cashIdx]] = cashIdx;
+  if (creditIdx !== -1) mapped[rawHeaders[creditIdx]] = creditIdx;
+  if (hoursIdx !== -1) mapped[rawHeaders[hoursIdx]] = hoursIdx;
+  if (jobIdx !== -1) mapped[rawHeaders[jobIdx]] = jobIdx;
 
   const parseMoney = (v: string | undefined): number =>
     parseFloat((v || '').replace(/[$€£,]/g, '')) || 0;
 
   const rows: ParsedRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const vals = parseCSVLine(lines[i]);
-    if (!vals[dateIdx]) continue;
+  for (const vals of dataLines) {
+    const dateVal = vals[dateIdx];
+    if (!dateVal || !dateVal.trim()) continue;
 
     rows.push({
-      date: vals[dateIdx] || '',
-      isDayOff: (vals[dayOffIdx] || '').toUpperCase() === 'TRUE',
-      hoursWorked: parseFloat(vals[hoursIdx]) || 0,
-      amount: parseMoney(vals[amountIdx]),
-      cashAmount: parseMoney(vals[cashIdx]),
-      creditAmount: parseMoney(vals[creditIdx]),
-      tipOut: parseMoney(vals[tipOutIdx]),
-      hourlyWage: parseMoney(vals[wageIdx]),
-      job: vals[jobIdx] || '',
-      startTime: vals[startIdx] || '',
-      endTime: vals[endIdx] || '',
-      shift: vals[shiftIdx] || '',
-      notes: vals[noteIdx] || '',
+      date: dateVal,
+      isDayOff: dayOffIdx !== -1 ? (vals[dayOffIdx] || '').toUpperCase() === 'TRUE' : false,
+      hoursWorked: hoursIdx !== -1 ? (parseFloat(vals[hoursIdx]) || 0) : 0,
+      amount: effectiveAmountIdx !== -1 ? parseMoney(vals[effectiveAmountIdx]) : 0,
+      cashAmount: cashIdx !== -1 ? parseMoney(vals[cashIdx]) : 0,
+      creditAmount: creditIdx !== -1 ? parseMoney(vals[creditIdx]) : 0,
+      tipOut: tipOutIdx !== -1 ? parseMoney(vals[tipOutIdx]) : 0,
+      hourlyWage: wageIdx !== -1 ? parseMoney(vals[wageIdx]) : 0,
+      job: jobIdx !== -1 ? (vals[jobIdx] || '') : '',
+      startTime: startIdx !== -1 ? (vals[startIdx] || '') : '',
+      endTime: endIdx !== -1 ? (vals[endIdx] || '') : '',
+      shift: shiftIdx !== -1 ? (vals[shiftIdx] || '') : '',
+      notes: noteIdx !== -1 ? (vals[noteIdx] || '') : '',
     });
   }
-  return rows;
+  return { rows, headers: rawHeaders, mappedColumns: mapped };
 }
 
 const generateId = (): string =>
@@ -164,12 +245,14 @@ const generateId = (): string =>
 export default function ImportModal({ visible, onClose }: ImportModalProps) {
   const { bulkImport, workplaces } = useApp();
   const [csvText, setCsvText] = useState('');
-  const [parsed, setParsed] = useState<ParsedRow[] | null>(null);
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [step, setStep] = useState<'input' | 'preview'>('input');
+
+  const parsed = parseResult?.rows ?? null;
 
   const reset = () => {
     setCsvText('');
-    setParsed(null);
+    setParseResult(null);
     setStep('input');
   };
 
@@ -183,20 +266,16 @@ export default function ImportModal({ visible, onClose }: ImportModalProps) {
       if (result.canceled) return;
       const file = result.assets[0];
 
+      let text: string;
       if (Platform.OS === 'web') {
         const response = await fetch(file.uri);
-        const text = await response.text();
-        setCsvText(text);
-        const rows = parseCSV(text);
-        setParsed(rows);
-        setStep('preview');
+        text = await response.text();
       } else {
-        const text = await readAsStringAsync(file.uri);
-        setCsvText(text);
-        const rows = parseCSV(text);
-        setParsed(rows);
-        setStep('preview');
+        text = await readAsStringAsync(file.uri);
       }
+      setCsvText(text);
+      setParseResult(parseCSV(text));
+      setStep('preview');
     } catch (e) {
       console.error('Error picking file:', e);
     }
@@ -204,8 +283,7 @@ export default function ImportModal({ visible, onClose }: ImportModalProps) {
 
   const handlePastePreview = () => {
     if (!csvText.trim()) return;
-    const rows = parseCSV(csvText);
-    setParsed(rows);
+    setParseResult(parseCSV(csvText));
     setStep('preview');
   };
 
@@ -263,9 +341,6 @@ export default function ImportModal({ visible, onClose }: ImportModalProps) {
         continue;
       }
 
-      // Skip rows with no meaningful data
-      if (row.hoursWorked === 0 && row.amount === 0 && row.cashAmount === 0 && row.creditAmount === 0) continue;
-
       const entry: Omit<TipEntry, 'id'> = {
         date: dateKey,
         hoursWorked: row.hoursWorked,
@@ -299,8 +374,10 @@ export default function ImportModal({ visible, onClose }: ImportModalProps) {
   };
 
   const dayOffCount = parsed?.filter(r => r.isDayOff).length || 0;
-  const entryCount = parsed?.filter(r => !r.isDayOff && (r.hoursWorked > 0 || r.amount > 0 || r.cashAmount > 0 || r.creditAmount > 0)).length || 0;
+  const entryCount = parsed?.filter(r => !r.isDayOff).length || 0;
   const jobNames = parsed ? [...new Set(parsed.filter(r => r.job).map(r => r.job))] : [];
+  const mappedCols = parseResult?.mappedColumns ?? {};
+  const fileHeaders = parseResult?.headers ?? [];
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -354,6 +431,20 @@ export default function ImportModal({ visible, onClose }: ImportModalProps) {
               <>
                 <Text style={styles.previewTitle}>Import Preview</Text>
 
+                {/* Show detected columns */}
+                <View style={styles.previewCard}>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>File columns</Text>
+                    <Text style={styles.previewValue}>{fileHeaders.join(', ')}</Text>
+                  </View>
+                  {Object.keys(mappedCols).length > 0 && (
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Detected</Text>
+                      <Text style={styles.previewValue}>{Object.keys(mappedCols).join(', ')}</Text>
+                    </View>
+                  )}
+                </View>
+
                 <View style={styles.previewCard}>
                   <View style={styles.previewRow}>
                     <Text style={styles.previewLabel}>Total rows</Text>
@@ -379,11 +470,13 @@ export default function ImportModal({ visible, onClose }: ImportModalProps) {
                 <Text style={styles.sampleTitle}>Sample Entries</Text>
                 {parsed.filter(r => !r.isDayOff).slice(0, 5).map((row, i) => {
                   const dateKey = convertDate(row.date);
+                  const tipTotal = row.amount || (row.cashAmount + row.creditAmount);
                   return (
                     <View key={i} style={styles.sampleRow}>
-                      <Text style={styles.sampleDate}>{dateKey}</Text>
+                      <Text style={styles.sampleDate}>{dateKey || row.date}</Text>
                       <Text style={styles.sampleDetail}>
-                        {row.hoursWorked}h | ${row.amount || (row.cashAmount + row.creditAmount)} tips
+                        {row.hoursWorked > 0 ? `${row.hoursWorked}h | ` : ''}
+                        {tipTotal > 0 ? `$${tipTotal} tips` : 'no tip data'}
                         {row.job ? ` | ${row.job}` : ''}
                         {row.hourlyWage > 0 ? ` | $${row.hourlyWage}/hr` : ''}
                       </Text>
