@@ -60,12 +60,32 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-function convertDate(mmddyyyy: string): string {
-  // MM/DD/YYYY -> YYYY-MM-DD
-  const parts = mmddyyyy.split('/');
-  if (parts.length !== 3) return '';
-  const [mm, dd, yyyy] = parts;
-  return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+function convertDate(dateStr: string): string {
+  const s = dateStr.trim();
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) {
+    const [y, m, d] = s.split('-');
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  // MM/DD/YYYY or M/D/YYYY
+  const slashParts = s.split('/');
+  if (slashParts.length === 3) {
+    const [mm, dd, yyyy] = slashParts;
+    if (yyyy.length === 4) {
+      return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    }
+    // Could be YYYY/MM/DD
+    if (mm.length === 4) {
+      return `${mm}-${dd.padStart(2, '0')}-${yyyy.padStart(2, '0')}`;
+    }
+  }
+  // MM-DD-YYYY
+  const dashParts = s.split('-');
+  if (dashParts.length === 3 && dashParts[2].length === 4) {
+    const [mm, dd, yyyy] = dashParts;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  }
+  return '';
 }
 
 function guessShiftType(shift: string): TipEntry['shiftType'] {
@@ -76,26 +96,43 @@ function guessShiftType(shift: string): TipEntry['shiftType'] {
   return 'other';
 }
 
+function findColumn(headers: string[], ...candidates: string[]): number {
+  for (const c of candidates) {
+    const idx = headers.indexOf(c);
+    if (idx !== -1) return idx;
+  }
+  // Partial match: check if any header contains a candidate
+  for (const c of candidates) {
+    const idx = headers.findIndex(h => h.includes(c));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
 function parseCSV(text: string): ParsedRow[] {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return [];
 
-  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, ''));
-  const colIndex = (name: string) => headers.indexOf(name);
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
-  const dateIdx = colIndex('date');
-  const dayOffIdx = colIndex('dayoff');
-  const hoursIdx = colIndex('hoursworked');
-  const amountIdx = colIndex('amount');
-  const cashIdx = colIndex('cashamount');
-  const creditIdx = colIndex('creditamount');
-  const tipOutIdx = colIndex('tipout');
-  const wageIdx = colIndex('hourlywage');
-  const jobIdx = colIndex('job');
-  const startIdx = colIndex('starttime');
-  const endIdx = colIndex('endtime');
-  const shiftIdx = colIndex('shift');
-  const noteIdx = colIndex('note');
+  const dateIdx = findColumn(headers, 'date', 'day', 'workdate', 'shiftdate');
+  const dayOffIdx = findColumn(headers, 'dayoff', 'off', 'isoff', 'isdayoff');
+  const hoursIdx = findColumn(headers, 'hoursworked', 'hours', 'hrs', 'totalhours', 'workhours', 'duration');
+  const amountIdx = findColumn(headers, 'amount', 'total', 'totaltips', 'tips', 'totalearnings', 'earnings', 'tipamount');
+  const cashIdx = findColumn(headers, 'cashamount', 'cash', 'cashtips', 'cashtip');
+  const creditIdx = findColumn(headers, 'creditamount', 'credit', 'credittips', 'card', 'cardtips', 'cardtip', 'creditcard', 'cc');
+  const tipOutIdx = findColumn(headers, 'tipout', 'tipouts', 'tippedout', 'tipshare');
+  const wageIdx = findColumn(headers, 'hourlywage', 'wage', 'hourlyrate', 'rate', 'payrate', 'hourly', 'basepay');
+  const jobIdx = findColumn(headers, 'job', 'workplace', 'employer', 'restaurant', 'location', 'work', 'company', 'place', 'venue');
+  const startIdx = findColumn(headers, 'starttime', 'start', 'clockin', 'timein', 'startat');
+  const endIdx = findColumn(headers, 'endtime', 'end', 'clockout', 'timeout', 'endat');
+  const shiftIdx = findColumn(headers, 'shift', 'shifttype', 'shiftname', 'period');
+  const noteIdx = findColumn(headers, 'note', 'notes', 'comments', 'comment', 'memo', 'description');
+
+  if (dateIdx === -1) return []; // No date column found
+
+  const parseMoney = (v: string | undefined): number =>
+    parseFloat((v || '').replace(/[$€£,]/g, '')) || 0;
 
   const rows: ParsedRow[] = [];
   for (let i = 1; i < lines.length; i++) {
@@ -106,11 +143,11 @@ function parseCSV(text: string): ParsedRow[] {
       date: vals[dateIdx] || '',
       isDayOff: (vals[dayOffIdx] || '').toUpperCase() === 'TRUE',
       hoursWorked: parseFloat(vals[hoursIdx]) || 0,
-      amount: parseFloat(vals[amountIdx]) || 0,
-      cashAmount: parseFloat(vals[cashIdx]) || 0,
-      creditAmount: parseFloat(vals[creditIdx]) || 0,
-      tipOut: parseFloat(vals[tipOutIdx]) || 0,
-      hourlyWage: parseFloat(vals[wageIdx]) || 0,
+      amount: parseMoney(vals[amountIdx]),
+      cashAmount: parseMoney(vals[cashIdx]),
+      creditAmount: parseMoney(vals[creditIdx]),
+      tipOut: parseMoney(vals[tipOutIdx]),
+      hourlyWage: parseMoney(vals[wageIdx]),
       job: vals[jobIdx] || '',
       startTime: vals[startIdx] || '',
       endTime: vals[endIdx] || '',
