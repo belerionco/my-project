@@ -17,6 +17,8 @@ export interface Goal {
   type: 'weekly' | 'monthly' | 'custom';
   amount: number;
   name?: string; // Only for custom goals
+  contributionPerShift?: number; // Only for custom goals
+  totalContributed?: number; // Only for custom goals
   createdAt: string;
 }
 

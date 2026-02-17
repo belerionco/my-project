@@ -28,6 +28,7 @@ export default function GoalsScreen() {
   const [addingCustomGoal, setAddingCustomGoal] = useState(false);
   const [customGoalName, setCustomGoalName] = useState('');
   const [customGoalAmount, setCustomGoalAmount] = useState('');
+  const [customGoalContribution, setCustomGoalContribution] = useState('');
 
   const now = new Date();
   const weeklyGoal = goals.find(g => g.type === 'weekly');
@@ -98,11 +99,13 @@ export default function GoalsScreen() {
 
   const saveCustomGoal = () => {
     const amount = parseFloat(customGoalAmount);
-    if (amount > 0 && customGoalName.trim()) {
-      addCustomGoal(customGoalName.trim(), amount);
+    const contribution = parseFloat(customGoalContribution);
+    if (amount > 0 && contribution > 0 && customGoalName.trim()) {
+      addCustomGoal(customGoalName.trim(), amount, contribution);
       setAddingCustomGoal(false);
       setCustomGoalName('');
       setCustomGoalAmount('');
+      setCustomGoalContribution('');
     }
   };
 
@@ -164,6 +167,20 @@ export default function GoalsScreen() {
                 />
               </View>
             </View>
+            <View style={styles.savingsInputGroup}>
+              <Text style={styles.savingsInputLabel}>Save Per Shift</Text>
+              <View style={styles.inputRow}>
+                <Text style={styles.dollarSign}>$</Text>
+                <TextInput
+                  style={styles.input}
+                  value={customGoalContribution}
+                  onChangeText={setCustomGoalContribution}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
             <View style={styles.savingsBtnRow}>
               <TouchableOpacity style={styles.saveBtn} onPress={saveCustomGoal}>
                 <Text style={styles.saveBtnText}>Save</Text>
@@ -174,6 +191,7 @@ export default function GoalsScreen() {
                   setAddingCustomGoal(false);
                   setCustomGoalName('');
                   setCustomGoalAmount('');
+                  setCustomGoalContribution('');
                 }}
               >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -181,40 +199,6 @@ export default function GoalsScreen() {
             </View>
           </View>
         )}
-
-        {/* Custom Goals */}
-        {customGoals.map(goal => {
-          const totalEarned = totalEarnings(entries);
-          const progress = Math.min(1, totalEarned / goal.amount);
-          return (
-            <View key={goal.id} style={styles.goalCard}>
-              <View style={styles.goalHeader}>
-                <Text style={styles.goalIcon}>🎯</Text>
-                <Text style={styles.goalType}>{goal.name}</Text>
-                <TouchableOpacity onPress={() => deleteGoal(goal.id)}>
-                  <Text style={styles.deleteBtn}>Delete</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.progressSection}>
-                <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(totalEarned)}</Text>
-                <Text style={styles.progressOf}>of {formatCurrency(goal.amount)}</Text>
-              </View>
-              <View style={styles.progressBarLg}>
-                <View style={[styles.progressFill, { backgroundColor: colors.gold, width: `${progress * 100}%` }]} />
-              </View>
-              <View style={styles.progressMeta}>
-                <Text style={[styles.progressPercent, { color: colors.gold }]}>{Math.round(progress * 100)}%</Text>
-                {totalEarned < goal.amount ? (
-                  <Text style={styles.progressRemaining}>
-                    {formatCurrency(goal.amount - totalEarned)} to go
-                  </Text>
-                ) : (
-                  <Text style={styles.goalReached}>Goal reached!</Text>
-                )}
-              </View>
-            </View>
-          );
-        })}
 
         {/* Weekly Goal */}
         <View style={styles.goalCard}>
@@ -510,6 +494,53 @@ export default function GoalsScreen() {
             <Text style={styles.noGoal}>Tap "Set" to create a yearly earnings goal</Text>
           )}
         </View>
+
+        {/* Custom Goals */}
+        {customGoals.map(goal => {
+          const contributed = (goal.contributionPerShift || 0) * entries.length;
+          const progress = Math.min(1, contributed / goal.amount);
+          const remaining = Math.max(0, goal.amount - contributed);
+          return (
+            <View key={goal.id} style={styles.goalCard}>
+              <View style={styles.goalHeader}>
+                <Text style={styles.goalIcon}>💰</Text>
+                <Text style={styles.goalType}>{goal.name}</Text>
+                <TouchableOpacity onPress={() => deleteGoal(goal.id)}>
+                  <Text style={styles.deleteBtn}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.progressSection}>
+                <Text style={styles.progressAmount} adjustsFontSizeToFit numberOfLines={1}>{formatCurrency(contributed)}</Text>
+                <Text style={styles.progressOf}>of {formatCurrency(goal.amount)}</Text>
+              </View>
+              <View style={styles.progressBarLg}>
+                <View style={[styles.progressFill, { backgroundColor: colors.gold, width: `${progress * 100}%` }]} />
+              </View>
+              <View style={styles.progressMeta}>
+                <Text style={[styles.progressPercent, { color: colors.gold }]}>{Math.round(progress * 100)}%</Text>
+                {contributed < goal.amount ? (
+                  <Text style={styles.progressRemaining}>
+                    {formatCurrency(remaining)} to go
+                  </Text>
+                ) : (
+                  <Text style={styles.goalReached}>Goal reached!</Text>
+                )}
+              </View>
+              <View style={styles.savingsDetails}>
+                <View style={styles.savingsDetailRow}>
+                  <Text style={styles.savingsDetailLabel}>Per shift contribution</Text>
+                  <Text style={styles.savingsDetailValue}>{formatCurrency(goal.contributionPerShift || 0)}</Text>
+                </View>
+                {remaining > 0 && (goal.contributionPerShift || 0) > 0 && (
+                  <View style={styles.savingsDetailRow}>
+                    <Text style={styles.savingsDetailLabel}>Shifts remaining</Text>
+                    <Text style={styles.savingsDetailValue}>~{Math.ceil(remaining / (goal.contributionPerShift || 1))}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
 
         {/* Quick Stats */}
         <View style={styles.quickStats}>

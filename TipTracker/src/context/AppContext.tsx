@@ -20,7 +20,7 @@ interface AppContextType {
   updateEntry: (id: string, entry: Partial<TipEntry>) => void;
   deleteEntry: (id: string) => void;
   setGoal: (type: 'weekly' | 'monthly', amount: number) => void;
-  addCustomGoal: (name: string, amount: number) => void;
+  addCustomGoal: (name: string, amount: number, contributionPerShift: number) => void;
   deleteGoal: (id: string) => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   toggleDayOff: (date: string) => void;
@@ -110,9 +110,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [entries, profile, daysOff, workplaces, saveData]);
 
-  const addCustomGoal = useCallback((name: string, amount: number) => {
+  const addCustomGoal = useCallback((name: string, amount: number, contributionPerShift: number) => {
     setGoals(prev => {
-      const newGoal: Goal = { id: generateId(), type: 'custom', name, amount, createdAt: new Date().toISOString() };
+      const newGoal: Goal = {
+        id: generateId(),
+        type: 'custom',
+        name,
+        amount,
+        contributionPerShift,
+        totalContributed: 0,
+        createdAt: new Date().toISOString(),
+      };
       const updated = [...prev, newGoal];
       saveData({ entries, goals: updated, profile, daysOff, workplaces });
       return updated;
