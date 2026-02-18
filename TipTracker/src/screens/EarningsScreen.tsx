@@ -165,7 +165,9 @@ export default function EarningsScreen() {
       )}
     </ScrollView>
 
-    <PaycheckScreen visible={showPaycheck} onClose={() => setShowPaycheck(false)} />
+    {showPaycheck && (
+      <PaycheckScreen visible onClose={() => setShowPaycheck(false)} />
+    )}
     </>
   );
 }

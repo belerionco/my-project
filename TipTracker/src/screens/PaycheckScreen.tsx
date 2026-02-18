@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
+  Modal, TextInput, Platform,
 } from 'react-native';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
@@ -213,10 +213,7 @@ export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
@@ -228,7 +225,7 @@ export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
           {/* ── PAY PERIOD ─────────────────────────────────── */}
           {renderSectionHeader('Pay Period')}
@@ -526,7 +523,7 @@ export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps
 
           <View style={{ height: spacing.xxl }} />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
