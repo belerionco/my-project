@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Platform,
+  TextInput,
 } from 'react-native';
 import { colors, spacing, borderRadius, fontSize } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import {
   totalTips, totalHours, formatCurrency, getWageForEntry,
-  toDateKey, parseDate,
+  toDateKey,
 } from '../utils/helpers';
 import { TipEntry } from '../types';
 
@@ -20,15 +20,10 @@ interface OtherDeduction {
   amount: string;
 }
 
-interface PaycheckScreenProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
 function getDefaultDates(type: PayPeriodType): { start: string; end: string } {
   const today = new Date();
   const end = toDateKey(today);
-  let start = new Date(today);
+  const start = new Date(today);
   switch (type) {
     case 'weekly':      start.setDate(today.getDate() - 6);  break;
     case 'biweekly':    start.setDate(today.getDate() - 13); break;
@@ -54,7 +49,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps) {
+export default function PaycheckScreen() {
   const { entries, profile, workplaces } = useApp();
 
   // Pay Period
@@ -114,13 +109,11 @@ export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps
     stateTax = parseFloat(stateTaxActual) || 0;
     ficaTax = parseFloat(ficaTaxActual) || 0;
   } else {
-    // Estimate: FICA is always 7.65% on wages (Social Security 6.2% + Medicare 1.45%)
     federalTax = grossPay * ((parseFloat(federalTaxRate) || 0) / 100);
     stateTax = grossPay * ((parseFloat(stateTaxRate) || 0) / 100);
     ficaTax = grossWagesNum * 0.0765;
   }
   const totalTaxes = federalTax + stateTax + ficaTax;
-
   const netPay = grossPay - totalDeductions - totalTaxes;
 
   // Hours discrepancy
@@ -174,7 +167,7 @@ export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps
     label: string,
     value: string,
     onChange: (v: string) => void,
-    opts?: { suffix?: string; hint?: string; keyboardType?: 'decimal-pad' | 'default' },
+    opts?: { suffix?: string; hint?: string },
   ) => (
     <View style={styles.inputGroup}>
       <View style={styles.inputLabelRow}>
@@ -189,7 +182,7 @@ export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps
           onChangeText={onChange}
           placeholder="0.00"
           placeholderTextColor={colors.textMuted}
-          keyboardType={opts?.keyboardType ?? 'decimal-pad'}
+          keyboardType="decimal-pad"
         />
         {opts?.suffix && <Text style={styles.inputSuffix}>{opts.suffix}</Text>}
       </View>
@@ -212,319 +205,306 @@ export default function PaycheckScreen({ visible, onClose }: PaycheckScreenProps
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-            <Text style={styles.headerBtnText}>Close</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Paycheck Calculator</Text>
-          <TouchableOpacity onPress={reset} style={styles.headerBtn}>
-            <Text style={[styles.headerBtnText, { color: colors.textMuted }]}>Reset</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Paycheck Calculator</Text>
+        <TouchableOpacity onPress={reset} style={styles.resetBtn}>
+          <Text style={styles.resetBtnText}>Reset</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── PAY PERIOD ─────────────────────────────────── */}
+      {renderSectionHeader('Pay Period')}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Period Type</Text>
+        <View style={styles.toggleRow}>
+          {(['weekly', 'biweekly', 'semimonthly', 'monthly'] as PayPeriodType[]).map(type => (
+            <TouchableOpacity
+              key={type}
+              style={[styles.toggleBtn, payPeriodType === type && styles.toggleBtnActive]}
+              onPress={() => applyPayPeriodType(type)}
+            >
+              <Text style={[styles.toggleText, payPeriodType === type && styles.toggleTextActive]}>
+                {type === 'biweekly' ? 'Bi-wkly' : type === 'semimonthly' ? 'Semi-mo' : type.charAt(0).toUpperCase() + type.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={{ marginTop: spacing.md }}>
+          {renderDatePicker('Start', startDate, setStartDate)}
+          {renderDatePicker('End', endDate, setEndDate)}
+        </View>
+
+        <View style={styles.appDataRow}>
+          <Text style={styles.appDataLabel}>Shifts in period</Text>
+          <Text style={styles.appDataValue}>{periodEntries.length}</Text>
+        </View>
+      </View>
+
+      {/* ── HOURS VERIFICATION ─────────────────────────── */}
+      {renderSectionHeader('Hours Verification')}
+      <View style={styles.card}>
+        <View style={styles.hoursCompareRow}>
+          <View style={styles.hoursBox}>
+            <Text style={styles.hoursBoxLabel}>App Tracked</Text>
+            <Text style={styles.hoursBoxValue}>{appHours.toFixed(2)}</Text>
+            <Text style={styles.hoursBoxUnit}>hrs</Text>
+          </View>
+          <View style={styles.hoursVs}>
+            {hoursDiff !== null ? (
+              hoursMatch ? (
+                <Text style={styles.hoursMatch}>Match</Text>
+              ) : (
+                <>
+                  <Text style={[styles.hoursDiff, { color: colors.red }]}>
+                    {hoursDiff > 0 ? '+' : ''}{hoursDiff.toFixed(2)} hrs
+                  </Text>
+                  <Text style={styles.hoursDiffLabel}>discrepancy</Text>
+                </>
+              )
+            ) : (
+              <Text style={styles.hoursVsText}>vs</Text>
+            )}
+          </View>
+          <View style={styles.hoursBox}>
+            <Text style={styles.hoursBoxLabel}>On Paycheck</Text>
+            <TextInput
+              style={styles.hoursInput}
+              value={paycheckHours}
+              onChangeText={setPaycheckHours}
+              placeholder="0.00"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+              textAlign="center"
+            />
+            <Text style={styles.hoursBoxUnit}>hrs</Text>
+          </View>
+        </View>
+
+        {hoursDiff !== null && !hoursMatch && (
+          <View style={styles.discrepancyBanner}>
+            <Text style={styles.discrepancyText}>
+              Your paycheck shows {hoursDiff > 0 ? Math.abs(hoursDiff).toFixed(2) + ' more hours than' : Math.abs(hoursDiff).toFixed(2) + ' fewer hours than'} the app tracked. Verify with your employer.
+            </Text>
+          </View>
+        )}
+
+        <View style={[styles.appDataRow, { marginTop: spacing.md }]}>
+          <Text style={styles.appDataLabel}>App-tracked wages</Text>
+          <Text style={styles.appDataValue}>{formatCurrency(appWages)}</Text>
+        </View>
+        <View style={styles.appDataRow}>
+          <Text style={styles.appDataLabel}>App-tracked tips (net)</Text>
+          <Text style={styles.appDataValue}>{formatCurrency(appTips)}</Text>
+        </View>
+      </View>
+
+      {/* ── EARNINGS ───────────────────────────────────── */}
+      {renderSectionHeader('Earnings')}
+      <View style={styles.card}>
+        {renderInputRow('Gross Wages on Paycheck', grossWages, setGrossWages, { hint: 'Before deductions & tax' })}
+        {renderInputRow('Tips Declared on Paycheck', declaredTips, setDeclaredTips, { hint: 'If employer includes tips' })}
+        <View style={[styles.totalRow, { marginTop: spacing.sm }]}>
+          <Text style={styles.totalLabel}>Gross Pay</Text>
+          <Text style={styles.totalValue}>{formatCurrency(grossPay)}</Text>
+        </View>
+      </View>
+
+      {/* ── DEDUCTIONS ─────────────────────────────────── */}
+      {renderSectionHeader('Deductions')}
+      <View style={styles.card}>
+        {renderInputRow('Health Insurance', healthInsurance, setHealthInsurance)}
+        {renderInputRow('401(k) / Retirement', retirement401k, setRetirement401k)}
+
+        {otherDeductions.map(d => (
+          <View key={d.id} style={styles.otherDeductRow}>
+            <Text style={styles.otherDeductLabel}>{d.label}</Text>
+            <Text style={styles.otherDeductAmount}>-{formatCurrency(parseFloat(d.amount) || 0)}</Text>
+            <TouchableOpacity onPress={() => removeOtherDeduction(d.id)} style={styles.removeBtn}>
+              <Text style={styles.removeBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        <Text style={styles.cardLabel}>Add Other Deduction</Text>
+        <View style={styles.addDeductRow}>
+          <TextInput
+            style={[styles.input, styles.deductLabelInput]}
+            value={newDeductLabel}
+            onChangeText={setNewDeductLabel}
+            placeholder="Label (e.g. Dental)"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="default"
+          />
+          <View style={styles.deductAmountWrap}>
+            <Text style={styles.inputPrefix}>$</Text>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              value={newDeductAmount}
+              onChangeText={setNewDeductAmount}
+              placeholder="0.00"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.addBtn, (!newDeductLabel.trim() || !newDeductAmount) && styles.addBtnDisabled]}
+            onPress={addOtherDeduction}
+          >
+            <Text style={styles.addBtnText}>Add</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={[styles.totalRow, { marginTop: spacing.sm }]}>
+          <Text style={styles.totalLabel}>Total Deductions</Text>
+          <Text style={[styles.totalValue, { color: colors.red }]}>-{formatCurrency(totalDeductions)}</Text>
+        </View>
+      </View>
 
-          {/* ── PAY PERIOD ─────────────────────────────────── */}
-          {renderSectionHeader('Pay Period')}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Period Type</Text>
-            <View style={styles.toggleRow}>
-              {(['weekly', 'biweekly', 'semimonthly', 'monthly'] as PayPeriodType[]).map(type => (
-                <TouchableOpacity
-                  key={type}
-                  style={[styles.toggleBtn, payPeriodType === type && styles.toggleBtnActive]}
-                  onPress={() => applyPayPeriodType(type)}
-                >
-                  <Text style={[styles.toggleText, payPeriodType === type && styles.toggleTextActive]}>
-                    {type === 'biweekly' ? 'Bi-wkly' : type === 'semimonthly' ? 'Semi-mo' : type.charAt(0).toUpperCase() + type.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+      {/* ── TAXES ──────────────────────────────────────── */}
+      {renderSectionHeader('Tax Breakdown')}
+      <View style={styles.card}>
+        <View style={styles.taxModeRow}>
+          <TouchableOpacity
+            style={[styles.taxModeBtn, taxMode === 'actual' && styles.taxModeBtnActive]}
+            onPress={() => setTaxMode('actual')}
+          >
+            <Text style={[styles.taxModeText, taxMode === 'actual' && styles.taxModeTextActive]}>
+              Enter Actual
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.taxModeBtn, taxMode === 'estimate' && styles.taxModeBtnActive]}
+            onPress={() => setTaxMode('estimate')}
+          >
+            <Text style={[styles.taxModeText, taxMode === 'estimate' && styles.taxModeTextActive]}>
+              Estimate
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-            <View style={{ marginTop: spacing.md }}>
-              {renderDatePicker('Start', startDate, setStartDate)}
-              {renderDatePicker('End', endDate, setEndDate)}
-            </View>
-
-            <View style={styles.appDataRow}>
-              <Text style={styles.appDataLabel}>Shifts in period</Text>
-              <Text style={styles.appDataValue}>{periodEntries.length}</Text>
-            </View>
-          </View>
-
-          {/* ── HOURS VERIFICATION ─────────────────────────── */}
-          {renderSectionHeader('Hours Verification')}
-          <View style={styles.card}>
-            <View style={styles.hoursCompareRow}>
-              <View style={styles.hoursBox}>
-                <Text style={styles.hoursBoxLabel}>App Tracked</Text>
-                <Text style={styles.hoursBoxValue}>{appHours.toFixed(2)}</Text>
-                <Text style={styles.hoursBoxUnit}>hrs</Text>
+        {taxMode === 'actual' ? (
+          <>
+            <Text style={styles.taxModeHint}>Enter amounts withheld from your pay stub</Text>
+            {renderInputRow('Federal Income Tax', federalTaxActual, setFederalTaxActual)}
+            {renderInputRow('State Income Tax', stateTaxActual, setStateTaxActual)}
+            {renderInputRow('FICA (SS + Medicare)', ficaTaxActual, setFicaTaxActual)}
+          </>
+        ) : (
+          <>
+            <Text style={styles.taxModeHint}>Estimates based on your gross pay. FICA is auto-calculated at 7.65%.</Text>
+            <View style={styles.inputGroup}>
+              <View style={styles.inputLabelRow}>
+                <Text style={styles.inputLabel}>Federal Tax Rate</Text>
+                <Text style={styles.inputHint}>{formatCurrency(federalTax)}</Text>
               </View>
-              <View style={styles.hoursVs}>
-                {hoursDiff !== null ? (
-                  hoursMatch ? (
-                    <Text style={styles.hoursMatch}>Match</Text>
-                  ) : (
-                    <>
-                      <Text style={[styles.hoursDiff, { color: colors.red }]}>
-                        {hoursDiff > 0 ? '+' : ''}{hoursDiff.toFixed(2)} hrs
-                      </Text>
-                      <Text style={styles.hoursDiffLabel}>discrepancy</Text>
-                    </>
-                  )
-                ) : (
-                  <Text style={styles.hoursVsText}>vs</Text>
-                )}
-              </View>
-              <View style={styles.hoursBox}>
-                <Text style={styles.hoursBoxLabel}>On Paycheck</Text>
+              <View style={styles.inputRow}>
                 <TextInput
-                  style={styles.hoursInput}
-                  value={paycheckHours}
-                  onChangeText={setPaycheckHours}
-                  placeholder="0.00"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="decimal-pad"
-                  textAlign="center"
-                />
-                <Text style={styles.hoursBoxUnit}>hrs</Text>
-              </View>
-            </View>
-
-            {hoursDiff !== null && !hoursMatch && (
-              <View style={styles.discrepancyBanner}>
-                <Text style={styles.discrepancyText}>
-                  Your paycheck shows {hoursDiff > 0 ? Math.abs(hoursDiff).toFixed(2) + ' more hours than' : Math.abs(hoursDiff).toFixed(2) + ' fewer hours than'} the app tracked. Verify with your employer.
-                </Text>
-              </View>
-            )}
-
-            <View style={[styles.appDataRow, { marginTop: spacing.md }]}>
-              <Text style={styles.appDataLabel}>App-tracked wages</Text>
-              <Text style={styles.appDataValue}>{formatCurrency(appWages)}</Text>
-            </View>
-            <View style={styles.appDataRow}>
-              <Text style={styles.appDataLabel}>App-tracked tips (net)</Text>
-              <Text style={styles.appDataValue}>{formatCurrency(appTips)}</Text>
-            </View>
-          </View>
-
-          {/* ── EARNINGS ───────────────────────────────────── */}
-          {renderSectionHeader('Earnings')}
-          <View style={styles.card}>
-            {renderInputRow('Gross Wages on Paycheck', grossWages, setGrossWages, { hint: 'Before deductions & tax' })}
-            {renderInputRow('Tips Declared on Paycheck', declaredTips, setDeclaredTips, { hint: 'If employer includes tips' })}
-            <View style={[styles.totalRow, { marginTop: spacing.sm }]}>
-              <Text style={styles.totalLabel}>Gross Pay</Text>
-              <Text style={styles.totalValue}>{formatCurrency(grossPay)}</Text>
-            </View>
-          </View>
-
-          {/* ── DEDUCTIONS ─────────────────────────────────── */}
-          {renderSectionHeader('Deductions')}
-          <View style={styles.card}>
-            {renderInputRow('Health Insurance', healthInsurance, setHealthInsurance)}
-            {renderInputRow('401(k) / Retirement', retirement401k, setRetirement401k)}
-
-            {/* Other Deductions List */}
-            {otherDeductions.map(d => (
-              <View key={d.id} style={styles.otherDeductRow}>
-                <Text style={styles.otherDeductLabel}>{d.label}</Text>
-                <Text style={styles.otherDeductAmount}>-{formatCurrency(parseFloat(d.amount) || 0)}</Text>
-                <TouchableOpacity onPress={() => removeOtherDeduction(d.id)} style={styles.removeBtn}>
-                  <Text style={styles.removeBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            {/* Add Other Deduction */}
-            <Text style={styles.cardLabel}>Add Other Deduction</Text>
-            <View style={styles.addDeductRow}>
-              <TextInput
-                style={[styles.input, styles.deductLabelInput]}
-                value={newDeductLabel}
-                onChangeText={setNewDeductLabel}
-                placeholder="Label (e.g. Dental)"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="default"
-              />
-              <View style={styles.deductAmountWrap}>
-                <Text style={styles.inputPrefix}>$</Text>
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  value={newDeductAmount}
-                  onChangeText={setNewDeductAmount}
-                  placeholder="0.00"
+                  style={styles.input}
+                  value={federalTaxRate}
+                  onChangeText={setFederalTaxRate}
+                  placeholder="22"
                   placeholderTextColor={colors.textMuted}
                   keyboardType="decimal-pad"
                 />
+                <Text style={styles.inputSuffix}>%</Text>
               </View>
-              <TouchableOpacity
-                style={[styles.addBtn, (!newDeductLabel.trim() || !newDeductAmount) && styles.addBtnDisabled]}
-                onPress={addOtherDeduction}
-              >
-                <Text style={styles.addBtnText}>Add</Text>
-              </TouchableOpacity>
             </View>
-
-            <View style={[styles.totalRow, { marginTop: spacing.sm }]}>
-              <Text style={styles.totalLabel}>Total Deductions</Text>
-              <Text style={[styles.totalValue, { color: colors.red }]}>-{formatCurrency(totalDeductions)}</Text>
+            <View style={styles.inputGroup}>
+              <View style={styles.inputLabelRow}>
+                <Text style={styles.inputLabel}>State Tax Rate</Text>
+                <Text style={styles.inputHint}>{formatCurrency(stateTax)}</Text>
+              </View>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  value={stateTaxRate}
+                  onChangeText={setStateTaxRate}
+                  placeholder="5"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                />
+                <Text style={styles.inputSuffix}>%</Text>
+              </View>
             </View>
-          </View>
-
-          {/* ── TAXES ──────────────────────────────────────── */}
-          {renderSectionHeader('Tax Breakdown')}
-          <View style={styles.card}>
-            {/* Tax Mode Toggle */}
-            <View style={styles.taxModeRow}>
-              <TouchableOpacity
-                style={[styles.taxModeBtn, taxMode === 'actual' && styles.taxModeBtnActive]}
-                onPress={() => setTaxMode('actual')}
-              >
-                <Text style={[styles.taxModeText, taxMode === 'actual' && styles.taxModeTextActive]}>
-                  Enter Actual
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.taxModeBtn, taxMode === 'estimate' && styles.taxModeBtnActive]}
-                onPress={() => setTaxMode('estimate')}
-              >
-                <Text style={[styles.taxModeText, taxMode === 'estimate' && styles.taxModeTextActive]}>
-                  Estimate
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.appDataRow}>
+              <Text style={styles.appDataLabel}>FICA (7.65% of wages)</Text>
+              <Text style={styles.appDataValue}>{formatCurrency(ficaTax)}</Text>
             </View>
+          </>
+        )}
 
-            {taxMode === 'actual' ? (
-              <>
-                <Text style={styles.taxModeHint}>Enter amounts withheld from your pay stub</Text>
-                {renderInputRow('Federal Income Tax', federalTaxActual, setFederalTaxActual)}
-                {renderInputRow('State Income Tax', stateTaxActual, setStateTaxActual)}
-                {renderInputRow('FICA (SS + Medicare)', ficaTaxActual, setFicaTaxActual)}
-              </>
-            ) : (
-              <>
-                <Text style={styles.taxModeHint}>Estimates based on your gross pay. FICA is auto-calculated at 7.65%.</Text>
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputLabel}>Federal Tax Rate</Text>
-                    <Text style={styles.inputHint}>{formatCurrency(federalTax)}</Text>
-                  </View>
-                  <View style={styles.inputRow}>
-                    <TextInput
-                      style={styles.input}
-                      value={federalTaxRate}
-                      onChangeText={setFederalTaxRate}
-                      placeholder="22"
-                      placeholderTextColor={colors.textMuted}
-                      keyboardType="decimal-pad"
-                    />
-                    <Text style={styles.inputSuffix}>%</Text>
-                  </View>
-                </View>
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputLabel}>State Tax Rate</Text>
-                    <Text style={styles.inputHint}>{formatCurrency(stateTax)}</Text>
-                  </View>
-                  <View style={styles.inputRow}>
-                    <TextInput
-                      style={styles.input}
-                      value={stateTaxRate}
-                      onChangeText={setStateTaxRate}
-                      placeholder="5"
-                      placeholderTextColor={colors.textMuted}
-                      keyboardType="decimal-pad"
-                    />
-                    <Text style={styles.inputSuffix}>%</Text>
-                  </View>
-                </View>
-                <View style={styles.appDataRow}>
-                  <Text style={styles.appDataLabel}>FICA (7.65% of wages)</Text>
-                  <Text style={styles.appDataValue}>{formatCurrency(ficaTax)}</Text>
-                </View>
-              </>
+        <View style={[styles.totalRow, { marginTop: spacing.sm }]}>
+          <Text style={styles.totalLabel}>Total Taxes</Text>
+          <Text style={[styles.totalValue, { color: colors.red }]}>-{formatCurrency(totalTaxes)}</Text>
+        </View>
+      </View>
+
+      {/* ── SUMMARY ────────────────────────────────────── */}
+      {renderSectionHeader('Summary')}
+      <View style={[styles.card, styles.summaryCard]}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Gross Pay</Text>
+          <Text style={styles.summaryValue}>{formatCurrency(grossPay)}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryLabelGroup}>
+            <Text style={styles.summaryLabel}>Deductions</Text>
+            {totalDeductions > 0 && (
+              <Text style={styles.summarySubLabel}>
+                Health {healthNum > 0 ? formatCurrency(healthNum) : '$0.00'}  •  401k {k401Num > 0 ? formatCurrency(k401Num) : '$0.00'}
+                {otherDeductions.length > 0 ? `  •  Other ${formatCurrency(otherDeductTotal)}` : ''}
+              </Text>
             )}
-
-            <View style={[styles.totalRow, { marginTop: spacing.sm }]}>
-              <Text style={styles.totalLabel}>Total Taxes</Text>
-              <Text style={[styles.totalValue, { color: colors.red }]}>-{formatCurrency(totalTaxes)}</Text>
-            </View>
           </View>
+          <Text style={[styles.summaryValue, { color: colors.red }]}>-{formatCurrency(totalDeductions)}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryLabelGroup}>
+            <Text style={styles.summaryLabel}>Taxes Withheld</Text>
+            {totalTaxes > 0 && (
+              <Text style={styles.summarySubLabel}>
+                Fed {formatCurrency(federalTax)}  •  State {formatCurrency(stateTax)}  •  FICA {formatCurrency(ficaTax)}
+              </Text>
+            )}
+          </View>
+          <Text style={[styles.summaryValue, { color: colors.red }]}>-{formatCurrency(totalTaxes)}</Text>
+        </View>
 
-          {/* ── SUMMARY ────────────────────────────────────── */}
-          {renderSectionHeader('Summary')}
-          <View style={[styles.card, styles.summaryCard]}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Gross Pay</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(grossPay)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryLabelGroup}>
-                <Text style={styles.summaryLabel}>Deductions</Text>
-                {totalDeductions > 0 && (
-                  <Text style={styles.summarySubLabel}>
-                    Health {healthNum > 0 ? formatCurrency(healthNum) : '$0.00'}  •  401k {k401Num > 0 ? formatCurrency(k401Num) : '$0.00'}
-                    {otherDeductions.length > 0 ? `  •  Other ${formatCurrency(otherDeductTotal)}` : ''}
-                  </Text>
-                )}
-              </View>
-              <Text style={[styles.summaryValue, { color: colors.red }]}>-{formatCurrency(totalDeductions)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryLabelGroup}>
-                <Text style={styles.summaryLabel}>Taxes Withheld</Text>
-                {totalTaxes > 0 && (
-                  <Text style={styles.summarySubLabel}>
-                    Fed {formatCurrency(federalTax)}  •  State {formatCurrency(stateTax)}  •  FICA {formatCurrency(ficaTax)}
-                  </Text>
-                )}
-              </View>
-              <Text style={[styles.summaryValue, { color: colors.red }]}>-{formatCurrency(totalTaxes)}</Text>
-            </View>
+        <View style={styles.summaryDivider} />
 
+        <View style={styles.netPayRow}>
+          <Text style={styles.netPayLabel}>Net Pay</Text>
+          <Text style={[styles.netPayValue, netPay < 0 && { color: colors.red }]}>
+            {formatCurrency(netPay)}
+          </Text>
+        </View>
+
+        {appWages > 0 && (
+          <>
             <View style={styles.summaryDivider} />
-
-            <View style={styles.netPayRow}>
-              <Text style={styles.netPayLabel}>Net Pay</Text>
-              <Text style={[styles.netPayValue, netPay < 0 && { color: colors.red }]}>
-                {formatCurrency(netPay)}
+            <Text style={styles.comparisonTitle}>App Tracked This Period</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Wages (tracked)</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(appWages)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Net Tips (tracked)</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(appTips)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Total (tracked)</Text>
+              <Text style={[styles.summaryValue, { color: colors.accent }]}>
+                {formatCurrency(appWages + appTips)}
               </Text>
             </View>
-
-            {/* App Comparison */}
-            {appWages > 0 && (
-              <>
-                <View style={styles.summaryDivider} />
-                <Text style={styles.comparisonTitle}>App Tracked This Period</Text>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Wages (tracked)</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(appWages)}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Net Tips (tracked)</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(appTips)}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Total (tracked)</Text>
-                  <Text style={[styles.summaryValue, { color: colors.accent }]}>
-                    {formatCurrency(appWages + appTips)}
-                  </Text>
-                </View>
-              </>
-            )}
-          </View>
-
-          <View style={{ height: spacing.xxl }} />
-        </ScrollView>
+          </>
+        )}
       </View>
-    </Modal>
+
+      <View style={{ height: spacing.xxl }} />
+    </ScrollView>
   );
 }
 
@@ -533,32 +513,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
+  scroll: {
+    padding: spacing.lg,
+    paddingTop: spacing.xl,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 56 : spacing.xl,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    marginBottom: spacing.md,
   },
-  headerBtn: {
-    minWidth: 60,
-  },
-  headerBtnText: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    color: colors.accent,
-  },
-  headerTitle: {
-    fontSize: fontSize.md,
+  title: {
+    fontSize: fontSize.xl,
     fontWeight: '800',
     color: colors.text,
   },
-  scroll: {
-    padding: spacing.lg,
+  resetBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  resetBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   sectionHeader: {
     fontSize: fontSize.xs,
@@ -587,7 +566,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: spacing.sm,
   },
-  // Period type toggle
   toggleRow: {
     flexDirection: 'row',
     backgroundColor: colors.background,
@@ -612,7 +590,6 @@ const styles = StyleSheet.create({
   toggleTextActive: {
     color: colors.background,
   },
-  // Date picker
   datePickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -652,7 +629,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  // App data
   appDataRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -672,7 +648,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.accent,
   },
-  // Hours comparison
   hoursCompareRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -754,7 +729,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 18,
   },
-  // Inputs
   inputGroup: {
     marginBottom: spacing.sm,
   },
@@ -801,7 +775,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     paddingVertical: spacing.sm,
   },
-  // Other deductions
   otherDeductRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -871,7 +844,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.background,
   },
-  // Tax mode
   taxModeRow: {
     flexDirection: 'row',
     backgroundColor: colors.background,
@@ -903,7 +875,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     lineHeight: 18,
   },
-  // Totals
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -922,7 +893,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.text,
   },
-  // Summary
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

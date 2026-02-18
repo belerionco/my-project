@@ -10,6 +10,7 @@ import CalendarScreen from './src/screens/CalendarScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import EarningsScreen from './src/screens/EarningsScreen';
 import GoalsScreen from './src/screens/GoalsScreen';
+import AdvancedScreen from './src/screens/AdvancedScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AddTipModal from './src/components/AddTipModal';
@@ -76,6 +77,7 @@ function MainTabs() {
         <Tab.Screen name="Stats" component={StatsScreen} />
         <Tab.Screen name="Earnings" component={EarningsScreen} />
         <Tab.Screen name="Goals" component={GoalsScreen} />
+        <Tab.Screen name="Advanced" component={AdvancedScreen} />
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
 

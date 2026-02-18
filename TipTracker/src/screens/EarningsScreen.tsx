@@ -10,14 +10,12 @@ import {
   formatCurrency,
   getWageForEntry,
 } from '../utils/helpers';
-import PaycheckScreen from './PaycheckScreen';
 
 type Period = 'week' | 'month' | 'all';
 
 export default function EarningsScreen() {
   const { entries, profile, workplaces } = useApp();
   const [period, setPeriod] = useState<Period>('week');
-  const [showPaycheck, setShowPaycheck] = useState(false);
 
   // Filter entries based on selected period
   const getFilteredEntries = () => {
@@ -52,14 +50,8 @@ export default function EarningsScreen() {
   ];
 
   return (
-    <>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Earnings Breakdown</Text>
-        <TouchableOpacity style={styles.paycheckBtn} onPress={() => setShowPaycheck(true)}>
-          <Text style={styles.paycheckBtnText}>Paycheck</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.title}>Earnings Breakdown</Text>
 
       {/* Period Selector */}
       <View style={styles.periodRow}>
@@ -164,11 +156,6 @@ export default function EarningsScreen() {
         </View>
       )}
     </ScrollView>
-
-    {showPaycheck && (
-      <PaycheckScreen visible onClose={() => setShowPaycheck(false)} />
-    )}
-    </>
   );
 }
 
@@ -180,27 +167,11 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
     color: colors.text,
-  },
-  paycheckBtn: {
-    backgroundColor: colors.accent,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  paycheckBtnText: {
-    fontSize: fontSize.sm,
-    fontWeight: '800',
-    color: colors.background,
+    marginBottom: spacing.md,
   },
   periodRow: {
     flexDirection: 'row',
