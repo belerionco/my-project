@@ -52,8 +52,8 @@ export default function EarningsScreen() {
   ];
 
   return (
-    <View style={styles.container}>
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>Earnings Breakdown</Text>
         <TouchableOpacity style={styles.paycheckBtn} onPress={() => setShowPaycheck(true)}>
@@ -166,7 +166,7 @@ export default function EarningsScreen() {
     </ScrollView>
 
     <PaycheckScreen visible={showPaycheck} onClose={() => setShowPaycheck(false)} />
-    </View>
+    </>
   );
 }
 
@@ -174,9 +174,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
   },
   content: {
     padding: spacing.lg,
