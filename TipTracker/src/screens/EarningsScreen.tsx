@@ -10,12 +10,14 @@ import {
   formatCurrency,
   getWageForEntry,
 } from '../utils/helpers';
+import PaycheckScreen from './PaycheckScreen';
 
 type Period = 'week' | 'month' | 'all';
 
 export default function EarningsScreen() {
   const { entries, profile, workplaces } = useApp();
   const [period, setPeriod] = useState<Period>('week');
+  const [showPaycheck, setShowPaycheck] = useState(false);
 
   // Filter entries based on selected period
   const getFilteredEntries = () => {
@@ -50,8 +52,14 @@ export default function EarningsScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Earnings Breakdown</Text>
+    <View style={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Earnings Breakdown</Text>
+        <TouchableOpacity style={styles.paycheckBtn} onPress={() => setShowPaycheck(true)}>
+          <Text style={styles.paycheckBtnText}>Paycheck</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Period Selector */}
       <View style={styles.periodRow}>
@@ -156,6 +164,9 @@ export default function EarningsScreen() {
         </View>
       )}
     </ScrollView>
+
+    <PaycheckScreen visible={showPaycheck} onClose={() => setShowPaycheck(false)} />
+    </View>
   );
 }
 
@@ -164,14 +175,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scroll: {
+    flex: 1,
+  },
   content: {
     padding: spacing.lg,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: spacing.md,
+  },
+  paycheckBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  paycheckBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: '800',
+    color: colors.background,
   },
   periodRow: {
     flexDirection: 'row',
