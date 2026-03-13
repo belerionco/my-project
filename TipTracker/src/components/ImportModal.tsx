@@ -158,7 +158,8 @@ function detectMoneyColumns(headers: string[], dataLines: string[][], exclude: S
 
 function parseCSV(text: string): ParseResult {
   const empty: ParseResult = { rows: [], headers: [], mappedColumns: {} };
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  // Handle all line break types: \r\n (Windows), \n (Unix), \r (old Mac/some mobile apps), Unicode LS/PS
+  const lines = text.split(/\r\n|\n|\r|\u2028|\u2029/).filter(l => l.trim());
   if (lines.length < 2) return empty;
 
   const rawHeaders = parseCSVLine(lines[0]);
@@ -215,6 +216,26 @@ function parseCSV(text: string): ParseResult {
   const parseMoney = (v: string | undefined): number =>
     parseFloat((v || '').replace(/[$€£,]/g, '')) || 0;
 
+  // Helper to safely get a value from a row, with fallback for off-by-one column misalignment
+  // (some source apps export rows with fewer fields than their header)
+  const getStr = (vals: string[], idx: number): string => {
+    if (idx === -1 || idx >= vals.length) return '';
+    return vals[idx] || '';
+  };
+
+  // For string columns (job, notes, shift), if the expected index is empty,
+  // check one index before in case the source app has an off-by-one export bug
+  const getStrFuzzy = (vals: string[], idx: number): string => {
+    if (idx === -1) return '';
+    const v = getStr(vals, idx);
+    if (v) return v;
+    // If row has fewer cols than header and the value is empty, check idx-1
+    if (vals.length < rawHeaders.length && idx > 0) {
+      return getStr(vals, idx - 1);
+    }
+    return '';
+  };
+
   const rows: ParsedRow[] = [];
   for (const vals of dataLines) {
     const dateVal = vals[dateIdx];
@@ -222,18 +243,18 @@ function parseCSV(text: string): ParseResult {
 
     rows.push({
       date: dateVal,
-      isDayOff: dayOffIdx !== -1 ? (vals[dayOffIdx] || '').toUpperCase() === 'TRUE' : false,
-      hoursWorked: hoursIdx !== -1 ? (parseFloat(vals[hoursIdx]) || 0) : 0,
-      amount: effectiveAmountIdx !== -1 ? parseMoney(vals[effectiveAmountIdx]) : 0,
-      cashAmount: cashIdx !== -1 ? parseMoney(vals[cashIdx]) : 0,
-      creditAmount: creditIdx !== -1 ? parseMoney(vals[creditIdx]) : 0,
-      tipOut: tipOutIdx !== -1 ? parseMoney(vals[tipOutIdx]) : 0,
-      hourlyWage: wageIdx !== -1 ? parseMoney(vals[wageIdx]) : 0,
-      job: jobIdx !== -1 ? (vals[jobIdx] || '') : '',
-      startTime: startIdx !== -1 ? (vals[startIdx] || '') : '',
-      endTime: endIdx !== -1 ? (vals[endIdx] || '') : '',
-      shift: shiftIdx !== -1 ? (vals[shiftIdx] || '') : '',
-      notes: noteIdx !== -1 ? (vals[noteIdx] || '') : '',
+      isDayOff: dayOffIdx !== -1 ? getStr(vals, dayOffIdx).toUpperCase() === 'TRUE' : false,
+      hoursWorked: hoursIdx !== -1 ? (parseFloat(getStr(vals, hoursIdx)) || 0) : 0,
+      amount: effectiveAmountIdx !== -1 ? parseMoney(getStr(vals, effectiveAmountIdx)) : 0,
+      cashAmount: cashIdx !== -1 ? parseMoney(getStr(vals, cashIdx)) : 0,
+      creditAmount: creditIdx !== -1 ? parseMoney(getStr(vals, creditIdx)) : 0,
+      tipOut: tipOutIdx !== -1 ? parseMoney(getStr(vals, tipOutIdx)) : 0,
+      hourlyWage: wageIdx !== -1 ? parseMoney(getStr(vals, wageIdx)) : 0,
+      job: getStrFuzzy(vals, jobIdx),
+      startTime: getStr(vals, startIdx),
+      endTime: getStr(vals, endIdx),
+      shift: getStrFuzzy(vals, shiftIdx),
+      notes: getStrFuzzy(vals, noteIdx),
     });
   }
   return { rows, headers: rawHeaders, mappedColumns: mapped };
