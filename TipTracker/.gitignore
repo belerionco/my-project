@@ -5,7 +5,7 @@ node_modules/
 
 # Expo
 .expo/
-dist/
+# dist/ - kept for Xcode WKWebView web bundle
 web-build/
 expo-env.d.ts
 
@@ -36,6 +36,6 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
-/ios
+# generated native folders (Expo prebuild)
+# /ios - kept for custom Xcode WKWebView wrapper
 /android
